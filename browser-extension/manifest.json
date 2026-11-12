@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Jarvin: Share Current Page",
+  "version": "0.1.0",
+  "description": "Share the current tab once with Jarvin for review.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyHvLx5fH1JVBjoolaKOewhMJB0Rb1EhSoz83V6CHLz6FXig7QJb1JQ22/HqhJf6Md4/v1oXLOpr7hxF23fhECsSTQU0zFBlnOKQlg6+wHHS+CAtyT+oRUSrfbkVZnezJyQhotcNZZGbjW93wzEYOWQRMERHXqk+9Oob5iajQA+9OZ7WseohFPqQsK3EUWt6viEFLjOiFaBTF/b6WYLIFWWPP3dIeco6ej2fX+sYFsKy1U6RYzzDnMfvAxwB9ZVdf+4tsdCjVF1JZDh3JRLxLGOFtjERK9R/Ck+P4QOuU+/VMSak/5ieCkCI2yml64u80dOZXnZ0IFMwteGUtbPpMfQIDAQAB",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "action": { "default_popup": "popup.html", "default_title": "Share current page with Jarvin" }
+}

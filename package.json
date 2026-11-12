@@ -1,0 +1,126 @@
+{
+  "name": "jarvin",
+  "version": "0.1.0",
+  "description": "Jarvin: a Cursor-style desktop AI coding agent powered by Ollama, with file, terminal, web and MCP tools",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "check:vad-compare": "esbuild scripts/vad-compare.ts --bundle --platform=node --packages=external --outfile=.test-out/vad-compare.cjs && node .test-out/vad-compare.cjs",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win nsis",
+    "test": "node scripts/test.mjs",
+    "check:research": "esbuild scripts/live-research.ts --bundle --platform=node --packages=external --outfile=.test-out/live-research.cjs && node .test-out/live-research.cjs",
+    "check:research-multi": "esbuild scripts/live-research.ts --bundle --platform=node --packages=external --outfile=.test-out/live-research.cjs && node .test-out/live-research.cjs --multi",
+    "check:vision": "esbuild scripts/live-vision.ts --bundle --platform=node --packages=external --outfile=.test-out/live-vision.cjs && node .test-out/live-vision.cjs",
+    "check:visual-grounding": "esbuild scripts/live-visual-grounding.ts --bundle --platform=node --packages=external --format=esm --outfile=.test-out/live-visual-grounding.mjs && node .test-out/live-visual-grounding.mjs",
+    "check:visual-agent": "esbuild scripts/live-visual-agent.ts --bundle --platform=node --packages=external --outfile=.test-out/live-visual-agent.cjs && node .test-out/live-visual-agent.cjs",
+    "check:vision-window": "esbuild scripts/vision-window-fixture.ts --bundle --platform=node --packages=external --outfile=.test-out/vision-window-fixture.cjs && node scripts/vision-window-e2e.mjs",
+    "check:visual-desktop": "esbuild scripts/visual-desktop-fixture.ts --bundle --platform=node --packages=external --outfile=.test-out/visual-desktop-fixture.cjs && node scripts/visual-desktop-e2e.mjs",
+    "check:chrome-visual": "esbuild scripts/chrome-visual-fixture.ts --bundle --platform=node --packages=external --outfile=.test-out/chrome-visual-fixture.cjs && node scripts/chrome-visual-e2e.mjs",
+    "check:documents": "esbuild scripts/live-document.ts --bundle --platform=node --packages=external --outfile=.test-out/live-document.cjs && node .test-out/live-document.cjs",
+    "check:memory-ui": "esbuild scripts/memory-ui-check.ts --bundle --platform=node --packages=external --outfile=.test-out/memory-ui-check.cjs && node .test-out/memory-ui-check.cjs",
+    "check:recovery-ui": "esbuild scripts/recovery-ui-check.ts --bundle --platform=node --packages=external --outfile=.test-out/recovery-ui-check.cjs && node .test-out/recovery-ui-check.cjs",
+    "check:recovery-e2e": "node scripts/recovery-e2e.mjs",
+    "check:reminder-live": "esbuild scripts/live-reminder.ts --bundle --platform=node --packages=external --outfile=.test-out/live-reminder.cjs && node .test-out/live-reminder.cjs",
+    "check:routine-live": "esbuild scripts/live-routine.ts --bundle --platform=node --packages=external --outfile=.test-out/live-routine.cjs && node .test-out/live-routine.cjs",
+    "check:browser-extension": "esbuild src/main/browser-share.ts --bundle --platform=node --outfile=.test-out/browser-share.cjs && node scripts/browser-extension-e2e.mjs",
+    "check:handsfree-e2e": "node scripts/handsfree-e2e.mjs",
+    "check:companion-voice": "node scripts/handsfree-e2e.mjs --widget",
+    "check:qwen-voice": "node scripts/handsfree-e2e.mjs --widget --interrupt --qwen",
+    "check:voice-interruption": "node scripts/handsfree-e2e.mjs --widget --interrupt",
+    "check:speech-upgrade": "node scripts/handsfree-e2e.mjs --widget --interrupt --stronger",
+    "check:natural-voice": "esbuild scripts/piper-live.ts --bundle --platform=node --packages=external --outfile=.test-out/piper-live.cjs && node scripts/piper-live.mjs",
+    "check:natural-voice-ui": "node scripts/natural-voice-ui-e2e.mjs",
+    "check:chrome-launch": "esbuild scripts/chrome-launch-check.ts --bundle --platform=node --outfile=.test-out/chrome-launch-check.cjs && node .test-out/chrome-launch-check.cjs",
+    "check:chrome-routing": "esbuild scripts/live-chrome-routing.ts --bundle --platform=node --packages=external --outfile=.test-out/live-chrome-routing.cjs && node .test-out/live-chrome-routing.cjs",
+    "check:assistant-ui": "node scripts/assistant-ui-e2e.mjs",
+    "check:windows-uia": "esbuild scripts/windows-uia-check.ts --bundle --platform=node --packages=external --outfile=.test-out/windows-uia-check.cjs && node .test-out/windows-uia-check.cjs",
+    "check:windows-uia-agent": "npm run check:windows-uia -- --agent",
+    "shortcut": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-shortcut.ps1",
+    "dist:portable": "npm run build && electron-builder --win portable",
+    "dist:zip": "npm run build && electron-builder --win zip --x64",
+    "dist:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/clean-release.ps1",
+    "dist:safe": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer.ps1"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@types/node": "^20.14.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.0",
+    "mermaid": "^11.4.0",
+    "typescript": "^5.6.0"
+  },
+  "build": {
+    "appId": "ai.jarvin.app",
+    "productName": "Jarvin",
+    "files": [
+      "dist/**",
+      "assets/**",
+      "browser-extension/**",
+      "package.json",
+      "!dist/**/*.map",
+      "!**/node_modules/monaco-editor/**",
+      "!**/node_modules/onnxruntime-node/bin/napi-v6/{darwin,linux}/**",
+      "!**/node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**",
+      "!**/node_modules/node-pty/prebuilds/{darwin-arm64,darwin-x64,win32-arm64}/**"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "npmRebuild": false,
+    "win": {
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "asar": false,
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://updates.invalid/jarvin"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Jarvin",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Jarvin-Setup-${version}.${ext}"
+    }
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@xmldom/xmldom": "^0.9.12",
+    "docx": "^9.15.3",
+    "electron-updater": "^6.3.9",
+    "jszip": "^3.10.2",
+    "mammoth": "^1.13.0",
+    "monaco-editor": "^0.57.0",
+    "node-pty": "^1.1.0",
+    "onnxruntime-node": "^1.30.0",
+    "pdf-parse": "^2.4.5",
+    "phonemizer": "^1.2.1",
+    "pptxgenjs": "^4.0.1",
+    "sherpa-onnx-node": "^2.0.1",
+    "tesseract.js": "^7.0.0",
+    "xlsx-populate": "^1.21.0",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0",
+    "xterm-addon-search": "^0.13.0",
+    "xterm-addon-web-links": "^0.9.0"
+  },
+  "author": "Jarvin"
+}

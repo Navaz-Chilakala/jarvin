@@ -1,0 +1,10 @@
+node_modules/
+dist/
+release/
+.test-out/
+scratchpad/
+.env
+.env.*
+*.log
+*.tsbuildinfo
+.jarvin-update.zip.done

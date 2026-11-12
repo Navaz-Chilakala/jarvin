@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <link rel="stylesheet" href="assistant-widget.css">
+  <title>Jarvin companion</title>
+</head>
+<body>
+  <div class="widget">
+    <div class="drag-handle" title="Drag to move Jarvin" aria-hidden="true"></div>
+    <button id="pet" class="pet" title="Open Jarvin · right-click for controls" aria-label="Open Jarvin assistant; right-click for controls">
+      <span class="pet-shadow"></span>
+      <img class="robot" src="pet.png" alt="" draggable="false">
+      <svg class="badge badge-privacy privacy-mark" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#fffaf0" opacity=".92"/><g fill="none" stroke="#c98a2b" stroke-width="1.5" stroke-linecap="round"><path d="M3 8q5-5.5 10 0q-5 5.5-10 0Z"/><path d="M3.5 12.5l9-9"/></g></svg>
+    </button>
+    <button id="micToggle" class="mic-toggle" type="button" title="Microphone is off. Click to turn it on." aria-label="Microphone is off. Click to turn it on." aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect class="antenna-light" x="9" y="3" width="6" height="11" rx="3" fill="#9aa3a8"/><path class="mic-stand" d="M6 11a6 6 0 0 0 12 0M12 17v4" fill="none" stroke-width="2" stroke-linecap="round"/><path class="mic-slash" d="M4.5 3.5l15 17" fill="none" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+    <span id="status" class="sr-only" role="status" aria-live="polite">Ready · mic off</span>
+  </div>
+  <script src="assistant-widget.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+  <title>Jarvin Preview</title>
+  <link rel="stylesheet" href="preview.css" />
+</head>
+<body>
+  <div class="bar">
+    <button id="back" title="Back" disabled>&#8592;</button>
+    <button id="fwd" title="Forward" disabled>&#8594;</button>
+    <button id="reload" title="Reload">&#8635;</button>
+    <input id="url" placeholder="Type a port (3000), localhost:5173, or a file such as index.html" spellcheck="false" autocomplete="off" />
+    <button id="go" class="primary">Go</button>
+    <select id="servers" title="Dev servers found on this PC"><option value="">Servers…</option></select>
+    <label class="chk" title="Reload when files in the project change"><input id="auto" type="checkbox" /> Auto-reload</label>
+  </div>
+  <div class="bar sub">
+    <span id="status" class="status"></span>
+    <button id="errs" title="Send the page's console errors to the chat" hidden></button>
+    <button id="shot" title="Send a screenshot to the chat">Screenshot to chat</button>
+    <button id="ext" title="Open this page in your browser">Open in browser</button>
+    <button id="dev" title="Developer tools">DevTools</button>
+  </div>
+  <script src="preview.js"></script>
+</body>
+</html>

@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; font-src 'self' data:; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'" />
+  <title>Jarvin</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="monaco.css" />
+  <link rel="stylesheet" href="xterm.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="top">
+      <button id="toggleSide" class="icon" title="Toggle sidebar (Ctrl+B)"><i data-icon="sidebar"></i></button>
+      <div class="brand"><span class="logo"><i data-icon="bolt" data-size="13"></i></span>Jarvin</div>
+      <button id="openWs" class="chip" title="Open folder"><i data-icon="folder" data-size="14"></i><span id="wsName">Open folder…</span></button>
+      <div class="view-switch" role="group" aria-label="View"><button id="uiAssistant" type="button" aria-pressed="true">Assistant</button><button id="uiCode" type="button" aria-pressed="false">Code</button></div>
+      <span class="spacer"></span>
+      <button id="uiCompact" class="companion-button" type="button" title="Keep Jarvin in a small floating companion">◉ <span>Float</span></button>
+      <button id="toggleEditor" class="icon" title="Toggle editor"><i data-icon="code"></i></button>
+      <button id="termBtn" class="ghost" title="Terminal"><i data-icon="terminal" data-size="15"></i>Term</button>
+      <button id="probBtn" class="ghost" title="Problems: type, lint and syntax errors"><i data-icon="bug" data-size="15"></i>Problems<span id="probBadge" class="badge" hidden>0</span></button>
+      <button id="gitBtn" class="ghost" title="Git panel"><i data-icon="git" data-size="15"></i>Git</button>
+      <button id="mcpBtn" class="ghost" title="MCP servers"><i data-icon="plug" data-size="15"></i>MCP</button>
+      <div class="menuwrap"><button id="topMore" class="icon" title="More tools" aria-haspopup="menu"><i data-icon="more"></i></button><div id="topMenu" class="popmenu" role="menu" hidden>
+        <button id="termMore" class="mi compact-menu-item" role="menuitem"><i data-icon="terminal" data-size="14"></i>Terminal</button>
+        <button id="problemsMore" class="mi compact-menu-item" role="menuitem"><i data-icon="bug" data-size="14"></i>Problems</button>
+        <button id="gitMore" class="mi compact-menu-item" role="menuitem"><i data-icon="git" data-size="14"></i>Git</button>
+        <button id="mcpMore" class="mi compact-menu-item" role="menuitem"><i data-icon="plug" data-size="14"></i>MCP servers</button>
+        <button id="wtBtn" class="mi" role="menuitem" title="Worktrees"><i data-icon="git-branch" data-size="14"></i>Worktrees</button>
+        <button id="subBtn" class="mi" role="menuitem" title="Subagents"><i data-icon="bolt" data-size="14"></i>Subagents</button>
+        <button id="previewBtn" class="mi" role="menuitem" title="Preview URL"><i data-icon="globe" data-size="14"></i>Preview URL</button>
+        <button id="memoryBtn" class="mi" role="menuitem" title="View and edit saved memories"><i data-icon="list" data-size="14"></i>Memories</button>
+        <button id="tasksBtn" class="mi" role="menuitem" title="Tasks and reminders"><i data-icon="list" data-size="14"></i>Tasks &amp; reminders</button>
+        <button id="browserShareBtn" class="mi" role="menuitem" title="Share the current browser page"><i data-icon="globe" data-size="14"></i>Share browser page</button>
+        <button id="privacyBtn" class="mi" role="menuitem" title="Privacy and audit"><i data-icon="list" data-size="14"></i>Privacy &amp; audit</button>
+        <div class="msep"></div>
+        <button id="themeBtn" class="mi" role="menuitem" title="Toggle editor theme"><i data-icon="code" data-size="14"></i>Toggle editor theme</button>
+      </div></div>
+      <button id="setBtn" class="icon" title="Settings"><i data-icon="sliders"></i></button>
+    </header>
+
+    <aside id="tree">
+      <div class="sidehead"><span>EXPLORER</span><button id="refreshTree" class="icon sm" title="Refresh"><i data-icon="refresh" data-size="14"></i></button></div>
+      <div id="treeBody"></div>
+    </aside>
+    <div id="split1" class="split"></div>
+
+    <main id="editor">
+      <div id="tabbar"><div id="tabs"></div><button id="saveBtn" class="btn small" hidden>Save</button></div>
+      <div id="edHost" hidden>
+        <div id="monacoEditor" style="height:100%;width:100%"></div>
+        <textarea id="code" spellcheck="false" wrap="off" hidden></textarea>
+      </div>
+      <div id="edEmpty"><span class="logo big"><i data-icon="bolt" data-size="26"></i></span><p>Select a file to view or edit.<br /><span class="faint">Changes made by the agent appear here live.</span></p></div>
+    </main>
+    <div id="split2" class="split"></div>
+
+    <section id="chat">
+      <div class="chathead"><span class="ctitle">Conversation</span><select id="sessionSel" class="pill sess" title="Chat sessions"></select><span class="spacer"></span><div class="assistant-presence"><span></span><b id="assistantPresence">Ready</b></div><button id="newChat" class="icon sm" title="New chat"><i data-icon="plus" data-size="16"></i></button><div class="menuwrap"><button id="chatMore" class="icon sm" title="More chat actions" aria-haspopup="menu"><i data-icon="more" data-size="16"></i></button><div id="chatMenu" class="popmenu" role="menu" hidden><input id="sessionSearch" class="pill" placeholder="Search chats…" /><button id="pinChat" class="mi" role="menuitem"><i data-icon="star" data-size="14"></i>Pin / unpin chat</button><button id="archChat" class="mi" role="menuitem"><i data-icon="archive" data-size="14"></i>Archive / restore chat</button><button id="forkChat" class="mi" role="menuitem"><i data-icon="git-branch" data-size="14"></i>Fork chat</button><button id="renChat" class="mi" role="menuitem"><i data-icon="pencil" data-size="14"></i>Rename chat</button><div class="msep"></div><button id="exportChat" class="mi" role="menuitem"><i data-icon="download" data-size="14"></i>Export as Markdown</button><button id="exportChatJson" class="mi" role="menuitem"><i data-icon="code" data-size="14"></i>Export as JSON</button><div class="msep"></div><button id="delChat" class="mi danger" role="menuitem"><i data-icon="trash" data-size="14"></i>Delete chat</button></div></div></div>
+      <div id="messages">
+        <div id="inner">
+          <div id="empty">
+            <div class="assistant-orbit" aria-hidden="true"><div class="orbit-outer"></div><div class="orbit-inner"></div><img class="assistant-portrait" src="pet.png" alt="" /></div>
+            <div class="assistant-eyebrow">HERE WITH YOU</div>
+            <h2 id="emptyHeading">How can I help?</h2>
+            <p id="emptySub">Ask a question, start a task, or use your voice.</p>
+            <div id="chips"></div>
+          </div>
+          <div id="typing" hidden><span class="dots"><i></i><i></i><i></i></span><span>Working…</span></div>
+        </div>
+      </div>
+      <form id="composer">
+        <div class="cbox">
+          <div class="composer-label"><span class="composer-spark">✦</span><span>Talk to Jarvin</span></div>
+          <div id="ctxRow" hidden><button id="ctx" type="button" class="chip small" title="Included as context. Click to remove."></button></div>
+          <div id="vstat" class="vstat" hidden></div>
+          <textarea id="input" rows="1" placeholder="Ask Jarvin to build, fix, explain or run something… Use /commands and @file to attach files."></textarea>
+          <div id="complete" class="complete" hidden></div>
+          <div class="cfoot">
+            <span id="conn" class="dot" title="Ollama connection"></span>
+            <select id="model" class="pill" title="Model"></select>
+            <button id="taskChip" type="button" class="pill taskchip" hidden></button>
+            <button id="browserAttachment" type="button" class="pill" hidden title="Remove shared browser pages"></button>
+            <span id="ctxMeter" class="ctxm" title="Approximate context usage">0</span>
+            <select id="mode" class="pill" title="Approval mode: Ask first = confirm changes · Auto edits + desktop = apply edits and operate the screen automatically; other commands ask · Full auto · Plan only = read-only">
+              <option value="ask">Ask first</option>
+              <option value="auto-edit">Auto desktop</option>
+              <option value="auto">Full auto</option>
+              <option value="plan">Plan only</option>
+            </select>
+            <span class="spacer"></span>
+            <button id="mic" type="button" class="micbtn manual-mic" title="Voice input (Ctrl+Shift+M)"><i data-icon="mic" data-size="17"></i></button><button id="hfBtn" type="button" class="micbtn hf" title="Microphone status" aria-pressed="false"><i data-icon="mic" data-size="15"></i><span id="hfLabel">Starting mic…</span></button><button id="attachFile" type="button" class="micbtn" title="Attach file"><i data-icon="filePlus" data-size="17"></i></button><input id="fileFile" type="file" multiple hidden />
+<button id="attachImg" type="button" class="micbtn" title="Attach image"><i data-icon="image" data-size="17"></i></button><input id="imgFile" type="file" accept="image/*" multiple hidden />
+<button id="speakToggle" type="button" class="micbtn" title="Speak replies aloud (toggle)"><i data-icon="volume" data-size="17"></i></button>
+            <button id="stop" type="button" class="round" title="Stop (Esc)" hidden><i data-icon="stop" data-size="16"></i></button>
+            <button id="send" type="submit" class="round" title="Send (Enter)" disabled><i data-icon="up" data-size="16"></i></button>
+          </div>
+        </div>
+        <div class="fine">Jarvin can make mistakes. Review edits and commands before approving.</div>
+      </form>
+    </section>
+  </div>
+
+  <dialog id="mcpDlg">
+    <h3>MCP servers</h3>
+    <p class="hint">Same format as Claude Desktop and Cursor: <code>command</code> + <code>args</code> (stdio) or <code>url</code> (HTTP). MCP tools always ask for approval.</p>
+    <textarea id="mcpText" spellcheck="false" rows="12"></textarea>
+    <div id="mcpStatus"></div>
+    <div class="row end"><button id="mcpClose" type="button" class="btn">Close</button><button id="mcpSave" type="button" class="btn primary">Save &amp; reload</button></div>
+  </dialog>
+
+  <dialog id="trDlg">
+    <h3>Transcribe an audio or video file</h3>
+    <p class="hint">Runs on this PC with your speech model. Nothing is uploaded. Works with mp3, wav, m4a, ogg, webm, mp4 and similar (up to about 150 MB; for hour-long recordings, split the file first).</p>
+    <input id="trFile" type="file" accept="audio/*,video/*,.mp3,.wav,.m4a,.ogg,.opus,.flac,.webm,.mp4,.mkv,.mov,.aac" />
+    <div class="trbar" id="trBarWrap" hidden><div id="trBar"></div></div>
+    <div id="trStatus" class="hint"></div>
+    <label class="chk"><input id="trStamps" type="checkbox" checked /> Timestamps</label>
+    <textarea id="trText" rows="12" spellcheck="false" placeholder="The transcript appears here as it is made."></textarea>
+    <div class="row end">
+      <button id="trCancel" type="button" class="btn" hidden>Stop</button>
+      <button id="trCopy" type="button" class="btn">Copy</button>
+      <button id="trSave" type="button" class="btn">Save .txt</button>
+      <button id="trChat" type="button" class="btn">Put in chat</button>
+      <button id="trClose" type="button" class="btn primary">Close</button>
+    </div>
+  </dialog>
+
+  <dialog id="setDlg">
+    <h3>Settings</h3>
+    <label>Ollama URL<input id="sBase" /></label>
+    <div class="row"><button id="sModels" type="button" class="btn small">Manage models…</button><button id="sSetup" type="button" class="btn small">Run setup guide</button></div>
+    <label>OpenRouter/OpenAI API key (optional)<input id="sApiKey" type="password" placeholder="sk-or-..." /></label>
+    <label>Context window (num_ctx)<input id="sCtx" type="number" min="2048" step="1024" /></label>
+<label>Embedding model (Ollama)<input id="sEmbed" /></label>
+<label>Coding model (optional, defaults to chat model)<input id="sCoding" /></label>
+<label>Reasoning/compaction model (optional, defaults to chat model)<input id="sReasoning" /></label>
+<label>Local vision model (blank = choose an installed local vision model)<input id="sVision" placeholder="e.g. qwen3-vl:4b-instruct" /></label>
+    <label>Temperature<input id="sTemp" type="number" min="0" max="2" step="0.1" /></label>
+    <label>Terminal shell<select id="sShell"><option value="auto">Auto (PowerShell 7 if installed, else Windows PowerShell)</option><option value="powershell">Windows PowerShell</option><option value="cmd">cmd.exe</option></select></label>
+    <label>Max tool steps per request<input id="sSteps" type="number" min="1" max="200" /></label>
+<label class="chk"><input id="sNotify" type="checkbox" /> Show a desktop notification when a long run or background command finishes while Jarvin is in the background</label>
+<label class="chk"><input id="sResume" type="checkbox" /> After a crash or forced exit, continue the interrupted task when Jarvin starts again (within 30 minutes, once)</label>
+<label class="chk"><input id="sStartLogin" type="checkbox" /> Start Jarvin when I sign in to Windows (hidden in the tray; the microphone and models wait until you open it)</label>
+<label class="chk"><input id="sProactive" type="checkbox" /> Let Jarvin speak up without being asked (it only speaks or shows a notice, never acts; at most 4 spoken notices an hour)</label>
+<label class="chk"><input id="sProBattery" type="checkbox" /> &nbsp;&nbsp;Warn when the battery falls to 20% and the charger is unplugged</label>
+<label class="chk"><input id="sProDownloads" type="checkbox" /> Announce completed model downloads</label>
+<label class="chk"><input id="sProCommands" type="checkbox" /> Announce finished background commands</label>
+<label class="chk"><input id="sProMeetings" type="checkbox" /> Alert me 10 minutes before a local reminder containing the word “meeting”</label>
+<label class="chk"><input id="sProReminders" type="checkbox" /> &nbsp;&nbsp;Say reminders aloud when they are due</label>
+<label>Quiet hours for spoken notices (shown silently instead)<span><input id="sProQuietFrom" type="time" /> to <input id="sProQuietTo" type="time" /></span></label>
+<label class="chk"><input id="sOffline" type="checkbox" /> Offline: hide built-in web tools and block model downloads (not a network firewall)</label>
+<label class="chk"><input id="sAutoCheck" type="checkbox" /> After Jarvin edits files, check for errors (TypeScript, ESLint, Python, Go, Rust) and let it fix what it broke</label>
+<label class="chk"><input id="sAutocomplete" type="checkbox" /> Autocomplete: suggest code as you type (Tab to accept, uses a model on every pause)</label>
+<label>Autocomplete model (optional, a small fast local one is best; blank = chat model)<input id="sCompletionModel" placeholder="e.g. qwen2.5-coder:1.5b" /></label>
+    <div class="permhead">Updates</div>
+    <div id="upText" class="hint"></div>
+    <label>Update address (an https folder that holds latest.yml and the installer)<input id="sUpdateUrl" placeholder="https://example.com/jarvin" autocomplete="off" /></label>
+    <label class="chk"><input id="sUpdateAuto" type="checkbox" /> Check quietly when Jarvin starts</label>
+    <div class="row"><button id="upCheck" type="button" class="btn small">Check now</button><button id="upDownload" type="button" class="btn small primary" hidden>Download</button><button id="upInstall" type="button" class="btn small primary" hidden>Restart and install</button></div>
+    <div class="permhead">Voice</div>
+    <label class="chk"><input id="vEnabled" type="checkbox" /> Enable voice dictation (microphone button)</label>
+    <div class="grid2">
+      <label>Speech model<select id="vSize"></select></label>
+      <label>Language<select id="vLang"></select></label>
+    </div>
+    <label class="chk"><input id="vTranslate" type="checkbox" /> Translate speech to English</label>
+    <div class="grid2">
+      <label>Mode<select id="vMode"><option value="literal">Literal — exactly what I said</option><option value="clean">Clean — fix punctuation, remove fillers</option><option value="prompt">Prompt — turn it into a clear task</option><option value="comment">Code comment</option></select></label>
+      <label>Tone<select id="vTone"><option value="neutral">Neutral</option><option value="casual">Casual</option><option value="formal">Formal</option><option value="concise">Concise</option></select></label>
+    </div>
+    <label>Microphone sensitivity<select id="vSensitivity"><option value="high">High · quieter speech</option><option value="balanced">Balanced</option><option value="low">Low · noisy room</option></select></label>
+    <label>Cleanup model (Ollama)<select id="vCleanModel"></select></label>
+    <label>Personal dictionary — one per line: <code>heard =&gt; written</code>, or just the word to fix its capitals
+      <textarea id="vDict" class="lexta" rows="4" spellcheck="false" placeholder="cubernetes =&gt; Kubernetes&#10;jarvin =&gt; Jarvin&#10;GitHub"></textarea></label>
+    <label>Per-app style (dictating into another app with the hotkey) — one per line: <code>slack, discord =&gt; casual</code>, <code>outlook, gmail =&gt; formal</code>, <code>code =&gt; comment</code>. Names match the app or the window title.
+      <textarea id="vApps" class="lexta" rows="3" spellcheck="false" placeholder="slack, discord, whatsapp =&gt; casual&#10;outlook, gmail =&gt; formal&#10;code, cursor =&gt; comment"></textarea></label>
+    <label>Snippets — say the phrase, get the text. One per line: <code>phrase =&gt; text</code> (use <code>\n</code> for a new line)
+      <textarea id="vSnip" class="lexta" rows="4" spellcheck="false" placeholder="my email =&gt; you@example.com&#10;sign off =&gt; Thanks,\nYour Name"></textarea></label>
+    <label class="chk"><input id="vCloud" type="checkbox" /> Allow cloud models to see my dictated text (off = cloud models are never used for cleanup)</label>
+    <label class="chk"><input id="vAuto" type="checkbox" /> Send automatically after dictation</label>
+    <label class="chk"><input id="vKeep" type="checkbox" /> Keep dictation history (text only; audio is never saved)</label>
+    <label class="chk"><input id="vOffline" type="checkbox" /> Offline lock: never connect to the internet for speech (needs the model downloaded first)</label>
+    <label class="chk"><input id="vLive" type="checkbox" /> Show live text while I speak</label>
+    <div class="grid2">
+      <label>Hotkey (click, then press keys)<input id="vHotkey" placeholder="Control+Alt+J" /></label>
+      <div class="hint vhk" id="vHotkeyStat"></div>
+    </div>
+    <label class="chk"><input id="vInsert" type="checkbox" /> Hotkey in another app: paste the text there (off = bring Jarvin forward)</label>
+    <label class="chk"><input id="vOverlay" type="checkbox" /> Show the floating pill with waveform when dictating into another app</label>
+    <div class="hint">Jarvin listens automatically while it is open. Click the microphone control to mute it. Recognized requests are sent to your selected chat model.</div>
+    <div class="hint" id="vHfLevel">Microphone is starting.</div>
+    <div class="meter hfmeter"><i id="vHfBar"></i></div>
+    <pre class="hflog" id="vHfLog">Microphone activity appears here while Jarvin is open.</pre>
+    <div class="permhead">Check microphone accuracy</div>
+    <div class="hint">Speak a short phrase, then stop. This check shows the recognizer's exact output without sending a request, editing your draft, or saving audio or text.</div>
+    <div class="vrow"><button id="vDiagBtn" type="button" class="btn">Start voice check</button><span id="vDiagState" class="hint" role="status">Ready for a short phrase.</span></div>
+    <div class="meter hfmeter"><i id="vDiagBar"></i></div>
+    <pre class="hflog" id="vDiagResult" hidden></pre>
+    <label class="chk"><input id="vCommands" type="checkbox" /> Voice commands (say "send", "stop", "new chat", "open app dot py", "undo", "make it shorter"…)</label>
+    <label class="chk"><input id="vWake" type="checkbox" /> Only act on automatic listening when I start with "Jarvin" (ignores music, TV and other people)</label>
+    <label class="chk"><input id="vApprove" type="checkbox" /> Let me approve by voice (say "approve" for edits; commands and tools need "approve command"; "deny" always works)</label>
+    <label>Read Jarvin's replies aloud<select id="vSpeak"><option value="off">Off</option><option value="summary">Short summary</option><option value="full">Whole reply</option></select></label>
+    <label>Reply voice<select id="vSpeechEngine"><option value="auto">Natural local voice when installed</option><option value="system">Windows local voice</option></select></label>
+    <div class="vrow"><span class="hint">Have a recording? </span><button id="vTranscribeFile" type="button" class="btn">Transcribe an audio file…</button></div>
+    <div class="vrow"><span id="vStatus" class="hint"></span><button id="vDownload" type="button" class="btn">Download model</button></div>
+    <div class="permhead">Let other AI agents use Jarvin's voice</div>
+    <label class="chk"><input id="vMcp" type="checkbox" /> Run a local voice server so other agents (Claude Code, Cursor, ...) can use it. Only this PC can connect, and only with the secret token below.</label>
+    <label class="chk"><input id="vMcpMic" type="checkbox" /> Also let them listen through my microphone. A "listening" pill shows every time.</label>
+    <label>Port<input id="vMcpPort" type="number" min="1024" max="65535" /></label>
+    <div class="hint" id="vMcpStat"></div>
+    <label>Paste this into the other agent's MCP settings. It gives them three tools: speak, transcribe_file and listen.
+      <textarea id="vMcpCfg" class="lexta" rows="9" readonly spellcheck="false"></textarea></label>
+    <div class="vrow"><button id="vMcpCopy" type="button" class="btn small">Copy config</button><button id="vMcpRegen" type="button" class="btn small">Make a new token</button></div>
+    <div class="permhead">Dictation history <button id="vHistClear" type="button" class="btn sm">Clear all</button></div>
+    <div id="vHist" class="permlist"></div>
+    <div class="hint">Privacy: audio stays in memory and is discarded after transcription. Speech runs on this PC; the only network use is the one-time model download.</div>
+    <div class="permhead">Permissions for this folder</div>
+    <div id="permList" class="permlist"></div>
+    <div class="permadd">
+      <select id="paKind" class="pill" title="Allow without asking, or block outright"><option value="allow">Always allow</option><option value="deny">Always block</option></select>
+      <input id="paTool" class="pill" list="paTools" placeholder="tool" value="run_command" title="Tool name" />
+      <datalist id="paTools"><option value="run_command"></option><option value="edit_file"></option><option value="write_file"></option><option value="apply_patch"></option><option value="read_file"></option><option value="web_fetch"></option><option value="web_search"></option></datalist>
+      <input id="paMatch" class="pill grow" placeholder="Command prefix, e.g. npm test" />
+      <button id="paAdd" type="button" class="btn small primary">Add</button>
+    </div>
+    <div id="paErr" class="hint" hidden></div>
+    <div class="row end"><button id="setClose" type="button" class="btn">Cancel</button><button id="setSave" type="button" class="btn primary">Save</button></div>
+  </dialog>
+
+  <div id="termPanel" class="termblock" hidden>
+    <div id="termResize" class="termresize" title="Drag to resize terminal"></div>
+    <div class="termbar">
+      <strong>Terminal</strong>
+      <span id="termShell" class="hint"></span>
+      <span id="termDims" class="hint"></span>
+      <span class="spacer"></span>
+      <button id="termRestart" type="button" class="btn sm" title="Kill this shell and start a new one">Restart</button>
+      <button id="termExpand" type="button" class="btn sm" title="Expand or collapse terminal">Maximize</button>
+      <button id="termCloseBtn" type="button" class="icon sm" title="Hide terminal (the shell keeps running)"><i data-icon="x" data-size="14"></i></button>
+    </div>
+    <div id="termhost"></div>
+  </div>
+  <div id="probPanel" class="probpanel" hidden>
+    <div class="pp-head"><span class="pp-title">Problems</span><span id="ppCount" class="pp-count"></span><span class="spacer"></span><button id="ppRun" type="button" class="btn small">Run checks</button><button id="ppFixAll" type="button" class="btn small primary" hidden>Fix errors with Jarvin</button><button id="ppClose" type="button" class="icon sm" title="Close"><i data-icon="x" data-size="14"></i></button></div>
+    <div id="ppChecks" class="pp-checks"></div>
+    <div id="ppList" class="pp-list"></div>
+  </div>
+  <dialog id="vcDlg" class="vcdlg">
+    <div class="rv-head"><span id="vcTitle" class="rv-title"></span><span class="spacer"></span><button id="vcClose" type="button" class="btn small primary" onclick="this.closest('dialog').close()">Close</button></div>
+    <pre id="vcPre" class="vcpre"></pre>
+  </dialog>
+  <dialog id="reviewDlg" class="reviewdlg">
+    <div class="rv-head"><span class="rv-title">Review changes</span><span id="rvCount" class="rv-count"></span><span class="spacer"></span>
+      <button id="rvPrev" type="button" class="btn small" title="Previous change (Shift+F7)">↑ Prev</button><button id="rvNext" type="button" class="btn small" title="Next change (F7)">↓ Next</button><button id="rvMode" type="button" class="btn small">Inline</button><button id="rvClose" type="button" class="btn small primary">Done</button></div>
+    <div class="rv-body"><div id="rvFiles" class="rv-files"></div>
+      <div class="rv-main"><div class="rv-bar"><span id="rvPath" class="rv-path"></span><span id="rvInfo" class="rv-info"></span><span id="rvSaved" class="rv-saved"></span><span class="spacer"></span>
+        <button id="rvRevertHunk" type="button" class="btn small" title="Put this one change back to the original">Revert this change</button><button id="rvRevert" type="button" class="btn small">Revert file</button><button id="rvReviewed" type="button" class="btn small">Mark reviewed</button><button id="rvAcceptAll" type="button" class="btn small" hidden></button></div>
+        <div id="rvEditor"></div></div></div>
+    <div class="rv-foot">Left = before the agent's changes, right = now. Edit the right side freely: it is saved to the file as you type. Use the arrows in the gutter or "Revert this change" to undo one change.</div>
+  </dialog>
+  <dialog id="diffDlg">
+    <h3>Diff</h3>
+    <div id="diffHost" style="width:min(90vw,1100px);height:70vh"></div>
+    <div class="row end"><button id="diffClose" type="button" class="btn">Close</button></div>
+  </dialog>
+  <dialog id="setupDlg" class="mdlg">
+    <h3>Set up Jarvin</h3>
+    <div class="hint">Jarvin runs models on your PC with Ollama by default. You can use an OpenRouter key instead.</div>
+    <div class="sutabs"><button id="suTabLocal" type="button" class="on">On this PC (Ollama)</button><button id="suTabCloud" type="button">Cloud (OpenRouter)</button></div>
+    <div id="suLocal">
+      <div class="surow"><b>1. Ollama</b><div id="suOllama"></div></div>
+      <div class="surow"><b>2. Model</b><div id="suModel"></div></div>
+    </div>
+    <div id="suCloud" hidden>
+      <div class="surow"><b>1. API key</b>
+        <div class="hint">Get a key at <a href="#" id="suKeyGet">openrouter.ai/keys</a>. Free models work without credit but have rate limits. The key is stored in Jarvin's settings file on this PC.</div>
+        <div class="row"><input id="suKey" type="password" placeholder="sk-or-..." autocomplete="off" /><button id="suKeySave" type="button" class="btn small primary">Save key</button></div>
+        <div id="suKeyState" class="hint"></div>
+      </div>
+    </div>
+    <div class="surow"><b>3. Folder</b><div id="suFolder"></div><div class="row"><button id="suOpen" type="button" class="btn small">Open folder…</button><span id="suWs" class="hint"></span></div></div>
+    <div class="row end"><span id="suHint" class="hint spacer"></span><button id="suSkip" type="button" class="btn">Skip for now</button><button id="suDone" type="button" class="btn primary" disabled>Start</button></div>
+  </dialog>
+  <dialog id="browserShareDlg" class="browser-share-dlg">
+    <div class="rv-head"><span class="rv-title">Share a browser page</span><span class="spacer"></span><button id="bsClose" type="button" class="btn small">Close</button></div>
+    <div id="bsPair">
+      <p>Install the Jarvin extension once in Chrome or Edge: open the extensions page, enable Developer mode, choose <b>Load unpacked</b>, and select the folder below.</p>
+      <button id="bsFolder" class="btn small" type="button">Open extension folder</button>
+      <p>Open the page you want to share, select the extension, and paste this one-time code. It expires in two minutes.</p>
+      <input id="bsCode" readonly aria-label="One-time browser sharing code" />
+      <p class="hint">The extension reads only the selected tab when you click Share. It does not control the page or read other tabs.</p>
+      <p id="bsError" class="hint bad"></p>
+    </div>
+    <div id="bsReview" hidden>
+      <p>Review this page before attaching it to your message. It may contain private information or instructions from the website. Form fields and editable areas are skipped where possible.</p>
+      <div id="bsSource" class="hint"></div><textarea id="bsText" rows="14" readonly aria-label="Page text to share"></textarea>
+      <p id="bsTruncated" class="hint"></p>
+      <div class="row"><button id="bsAttach" class="btn primary" type="button">Attach to next message</button><button id="bsDiscard" class="btn" type="button">Discard</button></div>
+    </div>
+  </dialog>
+  <dialog id="tasksDlg" class="tasksdlg">
+    <div class="rv-head"><span class="rv-title">Tasks</span><span class="hint">Queued work, interrupted requests and background commands</span><span class="spacer"></span><button id="tkClearJobs" type="button" class="btn small" hidden>Clear finished</button><button id="tkClose" type="button" class="btn small primary">Close</button></div>
+    <div class="tkbody">
+      <div class="permhead">Saved routines</div>
+      <p class="hint">Save ordered instructions and run them with the current folder and approval settings. The agent interprets the steps; execution order and results are not guaranteed. Routines are stored locally and shared across folders.</p>
+      <div class="row"><input id="tkRoutineName" maxlength="100" placeholder="Routine name" autocomplete="off" /></div>
+      <div class="row"><textarea id="tkRoutineSteps" rows="4" placeholder="One instruction per line, in order" aria-label="Routine steps"></textarea></div>
+      <div class="row"><label class="hint" for="tkRoutineTime">Run every day at (optional, only while Jarvin is open)</label> <input id="tkRoutineTime" type="time" /></div>
+      <div class="row"><button id="tkRoutineSave" type="button" class="btn">Save routine</button><button id="tkRoutineCancel" type="button" class="btn small" hidden>Cancel editing</button><span id="tkRoutineEdit" class="hint"></span></div>
+      <div id="tkRoutines"></div>
+      <div class="permhead">Reminders</div>
+      <p class="hint">Reminders use your PC's local time. Choose Once, Every day, or Every week. Snoozing delays only the due occurrence. Keep Jarvin open for notifications (checked about every 30 seconds); overdue reminders appear when it next starts. Windows notification settings apply. Reminders are stored locally until removed.</p>
+      <div class="row"><input id="tkReminderText" maxlength="500" placeholder="What should I remember?" autocomplete="off" /><input id="tkReminderWhen" type="datetime-local" aria-label="Reminder date and time" /><select id="tkReminderRepeat" aria-label="Repeat"><option value="once">Once</option><option value="daily">Every day</option><option value="weekly">Every week</option></select><button id="tkReminderAdd" type="button" class="btn">Add reminder</button><button id="tkReminderCancel" type="button" class="btn small" hidden>Cancel editing</button></div>
+      <div id="tkReminders"></div>
+      <div class="permhead">Interrupted and paused requests</div>
+      <p class="hint">Some actions may already have happened. Review the request and existing work before continuing; nothing restarts automatically. Task records are stored locally, separately from chat history.</p>
+      <div id="tkRecovered"></div>
+      <div class="row end"><button id="tkClearRuns" type="button" class="btn small">Clear finished task records</button></div>
+      <div class="permhead">Queued messages</div>
+      <div id="tkPaused" class="hint bad" hidden></div>
+      <div id="tkQueue"></div>
+      <div class="row"><button id="tkSendNext" type="button" class="btn small primary" hidden>Send next now</button><button id="tkClearQ" type="button" class="btn small" hidden>Clear queue</button></div>
+      <div class="permhead">Background commands</div>
+      <div class="row"><input id="tkCmd" placeholder="e.g. npm run dev" autocomplete="off" spellcheck="false" /><button id="tkRun" type="button" class="btn">Run in background</button></div>
+      <div id="tkJobs"></div>
+      <pre id="tkOut" class="tkout" hidden></pre>
+    </div>
+  </dialog>
+  <dialog id="imgDlg" class="imgdlg">
+    <div class="rv-head"><span id="imgName" class="rv-title"></span><span id="imgInfo" class="hint"></span><span class="spacer"></span><button id="imgZoom" type="button" class="btn small">100%</button><button id="imgAttach" type="button" class="btn small">Attach to chat</button><button type="button" class="btn small primary" onclick="this.closest('dialog').close()">Close</button></div>
+    <div class="imgstage"><img id="imgView" class="fit" alt="" /></div>
+  </dialog>
+  <dialog id="trcDlg" class="trcdlg">
+    <div class="rv-head"><span class="rv-title">Runs</span><span class="hint">What Jarvin did, step by step, with timings</span><span class="spacer"></span><button id="trcFolder" type="button" class="btn small">Open folder</button><button id="trcClear" type="button" class="btn small danger">Delete old runs</button><button type="button" class="btn small primary" onclick="this.closest('dialog').close()">Close</button></div>
+    <div class="trcbody"><div id="trcList" class="trclist"></div><div id="trcDetail" class="trcdetail"></div></div>
+  </dialog>
+  <dialog id="modelDlg" class="mdlg wide">
+    <div class="rv-head"><span class="rv-title">Models</span><span class="spacer"></span><button id="mdRefresh" type="button" class="btn small">Refresh</button><button type="button" class="btn small primary" onclick="this.closest('dialog').close()">Close</button></div>
+    <div id="mdStatus" class="mdstatus"></div>
+    <div id="mdOffline" class="hint bad" hidden>Offline mode is on, so downloads are blocked. Turn it off in Settings.</div>
+    <div class="permhead">Installed</div><div id="mdInstalled"></div>
+    <div class="permhead">Recommended</div><div id="mdRec"></div>
+    <div id="mdOther"></div>
+    <div class="permhead">Download another</div>
+    <div class="row"><input id="mdName" placeholder="e.g. llama3.1:8b" autocomplete="off" /><button id="mdPull" type="button" class="btn">Download</button></div>
+    <div class="hint">Browse names at <a href="#" id="mdLib">ollama.com/library</a>. Pick one that supports tools, or Jarvin cannot use it as the chat model.</div>
+  </dialog>
+  <dialog id="palDlg">
+    <input id="palInput" placeholder="Type to search…" />
+    <div id="palList" class="permlist"></div>
+  </dialog>
+  <dialog id="gitDlg" class="gitdlg">
+    <div class="rv-head" id="gtBar"><span class="rv-title">Git</span><select id="gtBranch" title="Switch branch"></select><span id="gtTrack" class="hint"></span><span class="spacer"></span>
+      <button id="gtFetch" type="button" class="btn small gtact">Fetch</button><button id="gtPull" type="button" class="btn small gtact">Pull</button><button id="gtPush" type="button" class="btn small gtact">Push</button><button id="gtRefresh" type="button" class="btn small gtact">Refresh</button><button id="gitClose" type="button" class="btn small primary">Close</button></div>
+    <div id="gtNone" class="gtnone" hidden></div>
+    <div id="gtMain" class="gtbody">
+      <div class="gtleft">
+        <div class="gtsec"><b>Staged</b><span id="gtStagedN" class="mdtag"></span><span class="spacer"></span><button id="gtUnstageAll" type="button" class="btn small gtact">Unstage all</button></div>
+        <div id="gtStaged"></div>
+        <div class="gtsec"><b>Changes</b><span id="gtChangesN" class="mdtag"></span><span class="spacer"></span><button id="gtStageAll" type="button" class="btn small gtact">Stage all</button></div>
+        <div id="gtChanges"></div>
+        <div id="gtConflict" class="hint bad" hidden>Some files have merge conflicts (marked !). Fix them in the editor, then stage them.</div>
+        <div class="gtcommit">
+          <textarea id="gtMsg" rows="4" placeholder="Commit message: a short first line, then details if you want" spellcheck="true"></textarea>
+          <div class="row"><button id="gtDraft" type="button" class="btn small gtact">Draft with AI</button><label class="chk"><input id="gtAmend" type="checkbox" /> Amend last commit</label><span class="spacer"></span><button id="gtCommit" type="button" class="btn small primary gtact">Commit</button></div>
+        </div>
+        <div class="gtsec"><b>Branches</b><span class="spacer"></span><button id="gtNewBtn" type="button" class="btn small gtact">New branch</button></div>
+        <div id="gtNewRow" class="row" hidden><input id="gtNewName" placeholder="new-branch-name" autocomplete="off" /></div>
+        <div id="gtBranchList"></div>
+      </div>
+      <div class="gtright">
+        <div class="gttabs"><button type="button" data-t="diff" class="on">Changes</button><button type="button" data-t="log">History</button><button type="button" data-t="pr">Pull request</button></div>
+        <div id="gtDiffPane"><div id="gtDiffTitle" class="hint gtdt"></div><div id="gtDiff"></div></div>
+        <div id="gtLogPane" hidden><div id="gtLog"></div></div>
+        <div id="gtPrPane" hidden>
+          <div class="row"><span class="hint">Merge</span><b id="gtHead"></b><span class="hint">into</span><input id="gtBase" placeholder="origin/main" autocomplete="off" style="max-width:200px" /><button id="gtDraftPr" type="button" class="btn small gtact">Draft with AI</button></div>
+          <label>Title<input id="gtPrTitle" /></label>
+          <div class="row end" style="margin-top:4px"><button id="gtCopyTitle" type="button" class="btn small">Copy title</button></div>
+          <label>Description<textarea id="gtPrBody" rows="14"></textarea></label>
+          <div class="row end"><button id="gtCopyBody" type="button" class="btn small">Copy description</button><button id="gtOpenPr" type="button" class="btn small primary" disabled>Open pull request page</button></div>
+          <div id="gtPrHint" class="hint"></div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+  <dialog id="wtDlg">
+    <h3>Worktrees</h3>
+    <div class="row end"><button id="wtRefresh" type="button" class="btn">Refresh</button><button id="wtClose" type="button" class="btn">Close</button></div>
+    <div class="permhead">Retained worktrees</div><div id="wtList" class="permlist"></div>
+    <div class="permhead">Diff</div><pre id="wtDiff" class="tout"></pre>
+    <div class="permhead">Merge output</div><pre id="wtOut" class="tout"></pre>
+    <div class="row end"><button id="wtKeep" type="button" class="btn primary">Keep changes</button><button id="wtDiscard" type="button" class="btn danger">Discard</button></div>
+  </dialog>
+  <dialog id="subDlg">
+    <h3>Subagents</h3>
+    <div class="row end"><button id="subRefresh" type="button" class="btn">Refresh</button><button id="subClose" type="button" class="btn">Close</button></div>
+    <div class="permhead">Runs</div><div id="subList" class="permlist"></div>
+  </dialog>
+  <dialog id="memoryDlg" class="memorydlg" aria-labelledby="memoryTitle">
+    <div class="rv-head"><h3 id="memoryTitle">Saved memories</h3><button id="memoryClose" type="button" class="btn">Close</button></div>
+    <p class="hint memoryintro">These memories can be included in future requests. Select one to review, edit or delete it.</p>
+    <div class="memorybody">
+      <div class="memorylist"><label for="memorySelect">Memory</label><select id="memorySelect" size="9" aria-label="Saved memories"></select><p id="memoryMeta" class="hint"></p></div>
+      <div class="memoryedit"><label for="memoryText">Details</label><textarea id="memoryText" spellcheck="true" disabled></textarea><p id="memoryStatus" class="hint" role="status" aria-live="polite"></p><div class="row end"><button id="memoryDelete" type="button" class="btn danger" disabled>Delete</button><button id="memorySave" type="button" class="btn primary" disabled>Save</button></div></div>
+    </div>
+  </dialog>
+  <dialog id="privacyDlg">
+  <h3>Privacy</h3>
+  <p>Prompts and tool results go to the selected model provider. Local Ollama models run on this PC; cloud models and web tools use the network. Chat history and audit logs are stored locally.</p>
+  <p>Auto modes can allow actions without individual approval. Secret redaction is best effort and does not guarantee removal of all private data. Audit log: <code>jarvin-audit.jsonl</code> in user data.</p>
+  <label class="chk"><input type="checkbox" id="privacyOffline" /> Work offline whenever possible</label>
+  <label class="chk"><input type="checkbox" id="privacyScreenPaused" /> Pause screen observation</label>
+  <p>Pausing stops Jarvin's built-in screen and window captures, including the floating pet's screen sampler. The microphone stays available. A screen task already running will stop.</p>
+  <label for="privacyExcludedApps">Exclude apps by process name</label>
+  <textarea id="privacyExcludedApps" rows="2" placeholder="One name per line, for example WhatsApp.exe"></textarea>
+  <label for="privacyExcludedTitles">Exclude windows by title phrase</label>
+  <textarea id="privacyExcludedTitles" rows="2" placeholder="One phrase per line, for example Password Manager"></textarea>
+  <label for="privacyVisibleWindows">Choose an open window</label>
+  <select id="privacyVisibleWindows"></select>
+  <div class="row"><button id="privacyAddApp" type="button" class="btn">Add its app</button><button id="privacyAddTitle" type="button" class="btn">Add its title</button><button id="privacyRefreshWindows" type="button" class="btn">Refresh windows</button></div>
+  <p>Jarvin hides excluded windows from its window list and will not control them. If any excluded window is visible, whole-screen capture stops until that window is hidden or the rule is removed. Selected-window captures of other apps remain available. These rules cover Jarvin's built-in tools, not external MCP servers or shell commands.</p>
+  <div class="row end"><button id="privacySave" type="button" class="btn primary">Save</button><button id="privacyClose" type="button" class="btn">Close</button></div>
+</dialog>
+<script src="renderer.js"></script>
+</body>
+</html>
