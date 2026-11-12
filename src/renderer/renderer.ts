@@ -13,6 +13,7 @@ import { routineRequest, routineStepRequests } from '../shared/routines';
 import { pickResumable, resumeRequest } from '../shared/run-journal';
 import { proactiveSettings } from '../shared/proactive';
 import { initProactive } from './proactive';
+import { initVoiceTest } from './voicetest';
 import { isImagePath } from '../shared/images';
 import { createGitUi } from './gitui';
 import { renderDiagrams } from './diagrams';
@@ -2773,6 +2774,8 @@ const modelUi = createModelUi(jarvin, {
 wireVoiceMcpPanel(jarvin, toast);
 initVoiceMcp({ jarvin, getSettings: () => settings, busy: () => voiceCtl.isBusy(), toast });
 $('vTranscribeFile').onclick = () => { ($('setDlg') as HTMLDialogElement).close(); transcriber.open(); };
+const voiceTestUi = initVoiceTest({ jarvin, getSettings: () => settings, setSettings: async (patch) => { settings = await jarvin.setSettings(patch); }, setListeningPaused: (paused) => voiceCtl.setVoiceTest(paused), toast });
+$('vTestBtn').onclick = () => { ($('setDlg') as HTMLDialogElement).close(); void voiceTestUi.open(); };
 /** After a crash or forced exit, continue the newest interrupted task once. The old record is removed first so a task that crashes the app cannot loop. */
 async function maybeAutoResume() {
   if (settings.resumeTasks === false || new URLSearchParams(location.search).has('e2e') || !settings.workspace) return;

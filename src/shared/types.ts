@@ -261,6 +261,11 @@ export interface JarvinApi {
   voiceTranscribe(audio: Float32Array, o?: { external?: boolean; wake?: boolean; fast?: boolean; name?: boolean }): Promise<VoiceResult | { error: string }>;
   voiceTranscribePiece(audio: Float32Array): Promise<{ text: string } | { error: string }>;
   voiceDiagnose(audio: Float32Array): Promise<import('./voice').VoiceDiagnostic | { error: string }>;
+  voiceTestStatus(): Promise<{ sentences: string[]; recorded: number[]; models: string[]; running: boolean; report: import('./voicetest').VoiceTestReport | null }>;
+  voiceTestSave(index: number, audio: Float32Array): Promise<number[]>;
+  voiceTestClear(): Promise<void>;
+  voiceTestRun(): Promise<import('./voicetest').VoiceTestReport>;
+  onVoiceTestProgress(cb: (p: { model: string; done: number; total: number }) => void): () => void;
   voiceMcpInfo(): Promise<{ running: boolean; port: number; token: string; error?: string }>;
   voiceMcpRegen(): Promise<{ running: boolean; port: number; token: string; error?: string }>;
   voiceMcpReply(id: string, r: { text?: string; error?: string }): Promise<void>;

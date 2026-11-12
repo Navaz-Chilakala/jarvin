@@ -14,6 +14,7 @@ const data = path.join(root, 'profile'), workspace = path.join(data, 'assistant-
 fs.mkdirSync(data);
 let child; const connections = [];
 let requests = 0;
+const notices = process.argv.includes('--notices');
 const server = http.createServer((req, res) => {
   if (req.url === '/api/version') return void res.end(JSON.stringify({ version: 'test' }));
   if (req.url === '/api/tags') return void res.end(JSON.stringify({ models: [{ name: 'test', size: 1 }] }));
@@ -38,7 +39,7 @@ async function connect(target) {
 
 try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ workspace: '', baseUrl: `http://127.0.0.1:${server.address().port}`, model: 'test', mode: 'ask', offline: true, setupDone: true, autoCheck: false, voice: { enabled: false } }));
+  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ workspace: '', baseUrl: `http://127.0.0.1:${server.address().port}`, model: 'test', mode: 'ask', offline: !notices, setupDone: true, autoCheck: false, notifyDone: false, voice: { enabled: false }, proactive: { enabled: notices, lowBattery: false, commands: true, downloads: true, meetings: true } }));
   child = spawn(electron, ['.', `--user-data-dir=${data}`, '--remote-debugging-port=0', '--remote-allow-origins=*'], { cwd: process.cwd(), windowsHide: true, stdio: 'ignore', env: { ...process.env, JARVIN_E2E: '1', JARVIN_E2E_HEADLESS: '1', JARVIN_E2E_DATA_DIR: root, JARVIN_SAFE_MODE: '1' } });
   let spawnError; child.once('error', (e) => { spawnError = e; });
   const port = await until(() => { if (spawnError) throw spawnError; if (child.exitCode !== null) throw new Error(`Electron exited ${child.exitCode}`); try { return Number(fs.readFileSync(path.join(data, 'DevToolsActivePort'), 'utf8').split('\n')[0]); } catch { return null; } }, 'debug port');
@@ -110,6 +111,25 @@ try {
   await widget.eval("window.assistantWidget.act('code')");
   await until(() => main.eval("document.getElementById('uiCode').getAttribute('aria-pressed') === 'true'"), 'code view from companion');
   console.log('Companion body dragging, click-to-open, code switching, background job, approval, and stop passed in isolated Electron.');
+  if (notices) {
+    await main.eval(`window.noticeLog = []; new MutationObserver(records => {
+      for (const record of records) for (const node of record.addedNodes) if (node.classList?.contains('toast')) window.noticeLog.push(node.textContent);
+    }).observe(document.body,{childList:true}); true`);
+    const saw = (part) => main.eval(`window.noticeLog.some(t => t.includes(${JSON.stringify(part)}))`);
+    await main.eval("window.jarvin.jobsStart('echo finished')");
+    await until(() => saw('Background command finished'), 'command completion toast');
+    const meeting = await main.eval("window.jarvin.remindersCreate('Fixture meeting', Date.now()+540000)");
+    try { await until(() => saw('Fixture meeting'), 'meeting toast', 45_000); }
+    finally { await main.eval(`window.jarvin.remindersRemove(${JSON.stringify(meeting.id)})`); }
+    const url = new URL(process.env.JARVIN_TEST_PULL_URL);
+    if (url.hostname !== '127.0.0.1') throw Error('Use an isolated loopback Ollama server.');
+    await main.eval(`window.jarvin.setSettings({baseUrl:${JSON.stringify(url.origin)}})`);
+    await main.eval("void window.jarvin.modelsPull('all-minilm:22m').then(p=>window.pullResult=p); true");
+    await until(() => main.eval('Boolean(window.pullResult)'), 'isolated Ollama pull', 180_000);
+    assert.equal((await main.eval('window.pullResult')).error, undefined);
+    assert.ok(await saw('Model download finished: all-minilm:22m'));
+    console.log('Observed completion, upcoming meeting, and real Ollama download notices.');
+  }
 } finally {
   for (const c of connections) try { c.close(); } catch { /* already closed */ }
   if (child && child.exitCode === null && child.signalCode === null) {

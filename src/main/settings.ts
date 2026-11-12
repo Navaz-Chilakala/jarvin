@@ -42,7 +42,10 @@ export function loadSettings(): Settings {
     const merged = { ...defaults, ...saved, voice: { ...voiceDefaults, ...(saved.voice ?? {}) } };
     merged.observationPaused = saved.observationPaused === true;
     // Settings saved before the microphone switch existed kept "Jarvin" as the gate. The switch is the gate now.
-    if (saved.voice && saved.voice.listenOnStart === undefined) merged.voice.wakeWord = false;
+    // 12 Nov: the user chose "Hey Jarvin" as a second gate on top of the microphone switch. Settings saved before that
+    // decision (wakeVersion missing) are moved to it once; after that the Settings checkbox is respected.
+    if (saved.voice && saved.voice.wakeVersion !== 2) merged.voice.wakeWord = true;
+    merged.voice.wakeVersion = 2;
     merged.excludedApps = Array.isArray(saved.excludedApps) ? saved.excludedApps.filter((value: unknown) => typeof value === 'string' && value.trim().length > 0 && value.length <= 120).slice(0, 30) : [];
     merged.excludedWindowTitles = Array.isArray(saved.excludedWindowTitles) ? saved.excludedWindowTitles.filter((value: unknown) => typeof value === 'string' && value.trim().length > 0 && value.length <= 120).slice(0, 30) : [];
     // Drop a saved workspace that no longer exists so the app doesn't crash on load.

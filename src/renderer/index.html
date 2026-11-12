@@ -195,11 +195,11 @@
     <pre class="hflog" id="vHfLog">Microphone activity appears here while Jarvin is open.</pre>
     <div class="permhead">Check microphone accuracy</div>
     <div class="hint">Speak a short phrase, then stop. This check shows the recognizer's exact output without sending a request, editing your draft, or saving audio or text.</div>
-    <div class="vrow"><button id="vDiagBtn" type="button" class="btn">Start voice check</button><span id="vDiagState" class="hint" role="status">Ready for a short phrase.</span></div>
+    <div class="vrow"><button id="vDiagBtn" type="button" class="btn">Start voice check</button><button id="vTestBtn" type="button" class="btn" title="Read 20 short sentences once. Jarvin then compares every installed speech recognizer on your own voice.">Voice test: find the best recognizer for my voice</button><span id="vDiagState" class="hint" role="status">Ready for a short phrase.</span></div>
     <div class="meter hfmeter"><i id="vDiagBar"></i></div>
     <pre class="hflog" id="vDiagResult" hidden></pre>
     <label class="chk"><input id="vCommands" type="checkbox" /> Voice commands (say "send", "stop", "new chat", "open app dot py", "undo", "make it shorter"…)</label>
-    <label class="chk"><input id="vWake" type="checkbox" /> Only act on automatic listening when I start with "Jarvin" (ignores music, TV and other people)</label>
+    <label class="chk"><input id="vWake" type="checkbox" /> Only act on speech that starts with "Hey Jarvin" (ignores music, TV and other people)</label>
     <label class="chk"><input id="vApprove" type="checkbox" /> Let me approve by voice (say "approve" for edits; commands and tools need "approve command"; "deny" always works)</label>
     <label>Read Jarvin's replies aloud<select id="vSpeak"><option value="off">Off</option><option value="summary">Short summary</option><option value="full">Whole reply</option></select></label>
     <label>Reply voice<select id="vSpeechEngine"><option value="auto">Natural local voice when installed</option><option value="system">Windows local voice</option></select></label>

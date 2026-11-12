@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+# Jarvin is a Windows-only product (UI Automation, SendInput, PowerShell helpers),
+# so CI runs on Windows only. Other platforms would skip the paths that matter.
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Unit tests
+        shell: bash
+        run: npm test 2>&1 | tee test-output.txt
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-output
+          path: test-output.txt
+
+  # Builds the Setup .exe on a runner without Smart App Control (it blocks the build on some PCs).
+  # Run it from the Actions tab; the installer is unsigned.
+  installer:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --win nsis --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jarvin-installer
+          path: |
+            release/Jarvin-Setup-*.exe
+            release/Jarvin-Setup-*.exe.blockmap
+            release/latest.yml

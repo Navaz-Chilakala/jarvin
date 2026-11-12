@@ -477,7 +477,7 @@ export const builtinTools: ToolDef[] = [
   },
   {
     name: 'create_document',
-    description: 'Create a new workspace DOCX, XLSX, PPTX or PDF. Give plain text. Excel uses tab-separated cells and newline-separated rows, stored as text. PowerPoint uses a line containing --- between slides, with each first line as the slide title.',
+    description: 'Create a new workspace DOCX, XLSX, PPTX or PDF. Give plain text. Excel takes one row per line with cells separated by a tab, a comma or |, stored as text; the result reports rows x columns, so check that it matches. PowerPoint uses a line containing --- between slides, with each first line as the slide title.',
     parameters: objSchema({ path: { type: 'string' }, content: { type: 'string' } }, ['path', 'content']),
     risk: 'write',
     summarize: a => `Create ${a.path}\n${String(a.content ?? '').slice(0, 1500)}`,

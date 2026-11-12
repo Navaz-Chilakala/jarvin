@@ -39,6 +39,8 @@ export interface VoiceSettings {
   voiceApprove: boolean;
   /** In automatic listening, only act on speech that starts with "Jarvin" (ignores music, TV and other people). */
   wakeWord: boolean;
+  /** Marks which default the wakeWord value was saved under, so an old default can be migrated once. */
+  wakeVersion?: number;
   /** Open the microphone as soon as Jarvin starts. Off by default: the mic listens only after it is switched on. */
   listenOnStart: boolean;
   speak: 'off' | 'summary' | 'full';
@@ -80,7 +82,7 @@ export const voiceDefaults: VoiceSettings = {
   insertIntoApp: true,
   commands: true,
   voiceApprove: false,
-  wakeWord: false,
+  wakeWord: true,
   listenOnStart: false,
   speak: 'off',
   ttsEngine: 'auto',

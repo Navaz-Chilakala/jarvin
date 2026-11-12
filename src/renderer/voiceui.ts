@@ -660,42 +660,30 @@ export function initVoice(d: VoiceDeps) {
   /* ---- automatic listening ---- */
   const hfBtn = $<HTMLButtonElement>('hfBtn');
   const hfLog: string[] = [];
-  /** After you talk over Jarvin's voice, what you are saying is accepted without the name until this time. */
-  let bargeUntil = 0;
   let lastIgnoredNote = 0;
-  const BARGE_MS = 15_000;
-  // Speech onset only silences Jarvin's own voice. It must NOT cancel a running task: onset fires on any
-  // loud sound (keyboard, fan, other people) before a transcript exists. A task is cancelled only when a
-  // real transcript arrives (see onResult below).
+  // Speech onset fires on any loud sound (keyboard, fan, other people) before a transcript exists, so it never
+  // cancels a task. With the name required it does not even silence Jarvin's voice: only "Hey Jarvin …" or "stop"
+  // does, once transcribed. Without the name requirement, onset silences Jarvin so it can hear you.
   const silenceOwnVoice = () => {
-    if (!speaker.activeReply) return;
-    bargeUntil = Date.now() + BARGE_MS;
+    if (!speaker.activeReply || d.getSettings().voice.wakeWord !== false) return;
     speaker.interrupt();
     show('Listening to you…', 1500, 'ok');
   };
-  const FOLLOW_UP_MS = 12_000;
-  let lastBusyAt = 0;
-  const busyNow = () => !!speaker.activeReply || d.actions.isRunning();
   const hf = createHandsFree({
     jarvin: d.jarvin,
     getSettings: d.getSettings,
-    // The name is needed to start a request or to interrupt Jarvin, but not to answer it: for a short while after
-    // Jarvin finishes speaking or working, what you say next is taken as your reply.
-    wake: () => {
-      if (d.getSettings().voice.wakeWord === false) return false;
-      if (speaker.activeReply || Date.now() < bargeUntil) return false; // talking over Jarvin: it stops and takes what you say
-      if (d.actions.isRunning()) return true; // silent work is only interrupted by the name or by "stop"
-      return !(lastBusyAt && Date.now() - lastBusyAt < FOLLOW_UP_MS);
-    },
+    // Even with the microphone on, Jarvin acts only on speech that starts with "Hey Jarvin" (or "Jarvin"/"Jarvis").
+    // Everything else, including replies, room talk, music and TV, is ignored. There are no exceptions after a reply or
+    // while Jarvin is speaking, because any such window would let stray sound through. "Stop" alone is still obeyed.
+    wake: () => d.getSettings().voice.wakeWord !== false,
     startMuted: () => d.getSettings().voice.listenOnStart !== true,
     onWake: () => show('Yes? Listening…', 2500, 'ok'),
-    // Never ignore speech silently: say what was heard and what to do, at most once every few seconds.
+    // Ignored speech is noted quietly in the voice status line (and the voice log), not as a pop-up: with the name
+    // required, room sound is ignored all the time and must not nag.
     onIgnored: (heard) => {
       if (heard.trim().split(/\s+/).length < 2 || Date.now() - lastIgnoredNote < 6000) return;
       lastIgnoredNote = Date.now();
-      const text = `Heard "${heard.slice(0, 60)}" but it did not start with "Jarvin". Say "Jarvin" first.`;
-      show(esc(text), 5000, 'bad');
-      d.toast(text);
+      show(esc(`Ignored "${heard.slice(0, 50)}". Start with "Hey Jarvin".`), 4000, 'ok');
     },
     canListen: () => state === 'idle',
     busyReason: () => 'you are recording or Jarvin is transcribing',
@@ -707,7 +695,6 @@ export function initVoice(d: VoiceDeps) {
       if (box) box.textContent = hfLog.join('\n');
     },
     onLevel: (level, thr, speaking) => {
-      if (busyNow()) lastBusyAt = Date.now();
       d.onMicLevel?.(Math.min(1, level / Math.max(thr * 3, .03)), speaking);
       const t = document.getElementById('vHfLevel');
       if (t) t.textContent = `Mic level ${level.toFixed(3)} · speech counts above ${thr.toFixed(3)}${speaking ? ' · hearing speech' : ''}`;
@@ -747,8 +734,11 @@ export function initVoice(d: VoiceDeps) {
   hfBtn.onclick = toggleListening;
   const syncHandsFree = () => {
     hfBtn.hidden = !voiceOn();
-    if (diagnosticStarting || diagnostic || diagnosticWorking) hf.stop(); else hf.sync();
+    if (diagnosticStarting || diagnostic || diagnosticWorking || voiceTestOpen) hf.stop(); else hf.sync();
   };
+  // While the voice test is open the user reads commands aloud on purpose, so automatic listening must be off.
+  let voiceTestOpen = false;
+  const setVoiceTest = (open: boolean) => { voiceTestOpen = open; syncHandsFree(); };
 
   const diagnosticButton = $<HTMLButtonElement>('vDiagBtn');
   const diagnosticState = $('vDiagState');
@@ -866,7 +856,7 @@ export function initVoice(d: VoiceDeps) {
   );
   // End-to-end tests feed recognised speech in directly (a headless machine has no way to speak commands).
   if (new URLSearchParams(location.search).has('e2e')) (window as any).__voiceHandle = (r: VoiceResult, automatic = false) => handle(r, automatic);
-  return { syncVisibility, syncHandsFree, toggle, toggleListening, cancelDiagnostic, beginSpeech: () => speaker.beginReply(), isBusy: () => state !== 'idle' || diagnosticStarting || !!diagnostic || diagnosticWorking, speak: (t: string) => speaker.speak(t), pushSpeech: (t: string) => speaker.push(t), flushSpeech: () => speaker.flush(), finishSpeech: () => speaker.finish(), stopSpeaking: () => speaker.interrupt(), warmNatural: () => speaker.warmNatural() };
+  return { syncVisibility, syncHandsFree, setVoiceTest, toggle, toggleListening, cancelDiagnostic, beginSpeech: () => speaker.beginReply(), isBusy: () => state !== 'idle' || diagnosticStarting || !!diagnostic || diagnosticWorking, speak: (t: string) => speaker.speak(t), pushSpeech: (t: string) => speaker.push(t), flushSpeech: () => speaker.flush(), finishSpeech: () => speaker.finish(), stopSpeaking: () => speaker.interrupt(), warmNatural: () => speaker.warmNatural() };
 }
 
 /* ---------------- settings dialog ---------------- */

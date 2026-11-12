@@ -6,6 +6,7 @@ import { autoFixPrompt } from '../shared/problems';
 import { cleanCompletion, cleanEdit, completeMessages, editMessages } from '../shared/inline';
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, Notification, powerMonitor, screen, session, shell, Tray } from 'electron';
 import { allowReload, isBackgroundStart, loginItem } from './background';
+import { VoiceTest } from './voice-test';
 import path from 'node:path';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -213,6 +214,7 @@ function refreshWorkspaceWatcher() {
   } catch { /* ignore */ }
 }
 let voice: VoiceService;
+let voiceTest: VoiceTest;
 let piper: PiperService;
 /** A desktop notification, only when Jarvin is in the background and the user has not turned them off. */
 function notifyUser(title: string, body: string) {
@@ -1518,6 +1520,11 @@ subagentEdit: runEditSubagent,
       return { error: String(e?.message ?? e) };
     }
   });
+  // Voice test: the user's own recordings, kept on this PC, used to compare the installed recognizers.
+  ipcMain.handle('voicetest:status', () => voiceTest.status());
+  ipcMain.handle('voicetest:save', (_e, index: unknown, audio: unknown) => voiceTest.save(index, audio));
+  ipcMain.handle('voicetest:clear', () => voiceTest.clear());
+  ipcMain.handle('voicetest:run', (e) => voiceTest.run((p) => { if (!e.sender.isDestroyed()) e.sender.send('voicetest:progress', p); }));
   ipcMain.handle('voice:diagnose', async (_e, audio: Float32Array) => {
     try {
       return await voice.diagnose(audio instanceof Float32Array ? audio : new Float32Array(audio as any));
@@ -1704,6 +1711,7 @@ app.whenReady().then(() => {
     { appRoot: path.join(__dirname, '..'), data: app.getPath('userData'), workerFile: path.join(__dirname, 'stt-worker.js') },
     (p) => win?.webContents.send('voice:progress', p),
   );
+  voiceTest = new VoiceTest({ appRoot: path.join(__dirname, '..'), data: app.getPath('userData'), workerFile: path.join(__dirname, 'stt-worker.js') });
   // A voice the user installed wins; otherwise the copy shipped in assets/voice/piper is used, so a fresh install speaks naturally.
   const userPiper = path.join(app.getPath('userData'), 'models', 'piper');
   const bundledPiper = path.join(__dirname, '..', 'assets', 'voice', 'piper');

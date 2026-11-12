@@ -276,6 +276,7 @@ export class VoiceService {
       if (!raw) return silent(true); // only "Hey Jarvin": caller opens the mic for the next sentence
     } else if (o.name) {
       const rest = matchWake(raw);
+      if (rest === '') return silent(true); // the name again, by itself: keep waiting for the request, do not send "Jarvin"
       if (rest) raw = rest;
     }
     const cmd = v.commands && !o.external ? parseVoiceCommand(raw) : null;

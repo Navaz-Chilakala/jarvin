@@ -7,6 +7,7 @@ import { resolveSafe } from './sandbox';
 import type { OfficeInput } from './office-worker';
 import type { ToolCtx } from './tools';
 import { readDocument } from './documents';
+import { normalizeOfficeContent } from '../shared/office-content';
 
 async function pdf(text: string): Promise<Buffer> {
   const view = new BrowserWindow({ show: false, webPreferences: { javascript: false, sandbox: true, nodeIntegration: false, partition: 'jarvin-pdf' } });
@@ -26,12 +27,14 @@ export async function writeOffice(ctx: ToolCtx, rel: string, data: OfficeInput, 
   if (!edit && fs.existsSync(file)) throw Error('File already exists. Choose another name or edit the document.');
   if (edit && ext === '.xlsx' && !data.cell) throw Error('Give the first cell to update.');
   if (edit && fs.statSync(file).size > 20 * 1024 * 1024) throw Error('Editing is limited to files up to 20 MB.');
+  const tidy = normalizeOfficeContent(ext, data.content);
+  data = { ...data, content: tidy.content };
   const original = edit ? fs.readFileSync(file) : undefined;
   ctx.signal.throwIfAborted();
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = path.join(path.dirname(file), '.jarvin-' + randomUUID() + '.tmp');
   try {
-    if (ext === '.pdf') fs.writeFileSync(tmp, await pdf(data.content), { flag: 'wx' });
+    if (ext === '.pdf') fs.writeFileSync(tmp, await pdf(tidy.content), { flag: 'wx' });
     else await new Promise<void>((resolve, reject) => {
       const child = execFile(process.execPath, [path.join(__dirname, 'office-worker.js'), ext, tmp, ...(edit ? [file] : [])], {
         timeout: 60_000, windowsHide: true, signal: ctx.signal, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
@@ -45,7 +48,8 @@ export async function writeOffice(ctx: ToolCtx, rel: string, data: OfficeInput, 
     ctx.beforeWrite?.(file);
     if (edit) fs.renameSync(tmp, file);
     else fs.linkSync(tmp, file); // Atomic creation fails if a different writer already claimed the name.
-    return `${edit ? 'Updated' : 'Created'} ${path.relative(ctx.root, file)}`;
+    // Say what was written, so a table that came out as one cell is visible to the model and the user.
+    return `${edit ? 'Updated' : 'Created'} ${path.relative(ctx.root, file)} (${edit && data.find ? 'replaced the matching text' : tidy.shape})`;
   } finally { fs.rmSync(tmp, { force: true }); }
 }
 

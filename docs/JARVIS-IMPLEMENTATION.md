@@ -2,26 +2,45 @@
 
 This tracker covers the supplied Project JARVIS master brief. It describes the existing Electron/TypeScript app in this repository, not the separate incomplete Python scaffold in the parent directory. A checked item requires an end-to-end acceptance test on the target Windows machine; unit tests or the presence of code alone are not enough.
 
-## Status board (12 November 2026)
+## Status board (12 November 2026, evening)
 
-Automated suite: 342 tests, 334 pass, 8 skipped, 0 fail; typecheck and build clean.
+Automated suite: 347 tests, 339 pass, 8 skipped, 0 fail; typecheck and build clean (re-run for this update).
 
 How to read this: **Live** means it was run in the real app on the Windows laptop. **Checked** means an automated or isolated check passed. **Built** means the code exists and unit tests pass, but nobody has run it for real. Each line says which.
 
-### 1. Voice: speak, get an action
+### Where things stand in one paragraph
+
+Jarvin runs as a Windows Electron app with a TypeScript main process and renderer. On 12 November the user completed the voice test on 20 recordings. Qwen3-ASR had 3 word errors out of 160 (1.9%), 17 exact sentences and 9 of 10 wake phrases recognized, averaging 1.49 seconds per recording. The three other recognizers failed while loading their shared speech engine. A four-way accuracy comparison remains open.
+
+### 1. Voice
+
+**How it behaves today**
 
 | What | State |
 |---|---|
-| Microphone is off until switched on. Switch in the main window ("Mic off / Listening") and a round mic button on the floating pet (grey with red slash = off, green ring = on). | Built 11 Nov. **Live by the user: basic flow works** (mic on, spoken request acted on). Pet button click not reported. |
-| No wake word needed while the mic is on. The "Jarvin" option is off by default and old settings were migrated; it remains in Settings, Voice. | Built 11 Nov. Live by the user as part of the basic flow. |
-| While Jarvin is doing a task (a tool has been used), only "stop", "cancel", "wait", "pause", "be quiet", "enough" interrupt. Other speech is ignored with "Working. Say stop to interrupt." | Built 11 Nov. Not run on a real task. |
-| While Jarvin is only talking, speaking over it stops its voice and replaces the reply. | Checked with generated speech (`handsfree-e2e.mjs --widget --interrupt`, also with `--barge`). |
-| Steady background sound (music, TV) no longer holds an utterance open to the 12 s cap; end of speech is judged against the speaker's own loudness. | Built, unit-tested. Not measured in a noisy room. |
-| With the wake word on: name then pause then request works; replies within 12 s need no name; ignored speech is shown on screen with the reason; the name is matched by sound (Jarwin, Charvin, Javin, "Jar vin"). | Checked with generated speech (`--wake`, `--wake-pause`). Cost: a sentence starting with Gavin, Devin or Darwin also matches. |
-| Speech recognizer: Windows Smart App Control blocks the Qwen3-ASR module, so Jarvin falls back to distil-small.en (then whisper-base.en, then moonshine) and says so in the voice log. | Live with a generated sentence (10 Nov). Accuracy on the user's voice not measured. |
-| Spoken replies: Piper "joe" voice ships inside the app; the voice worker falls back from Kokoro (blocked on this PC) to Piper. | Checked (`npm run check:natural-voice`). Not listened to through speakers. |
+| Microphone is off until switched on, by the "Mic off / Listening" button in the main window or the round mic button on the floating pet (grey with red slash = off, green ring = on). | **Live by the user (11 Nov): basic flow works.** A click on the pet's button was not reported. |
+| "Hey Jarvin" is required (user decision, 12 Nov). With the mic on, Jarvin acts only on speech that starts with "Hey Jarvin", "Jarvin" or "Jarvis". Everything else is ignored and noted quietly in the voice status line. No name-free window after a reply; a loud sound no longer cuts Jarvin's voice. The name alone keeps Jarvin waiting 10 s for the request. | Checked with generated speech on Whisper base and distil-small: "Hey Jarvis, …" and "Jarvin, …" run with the name removed; name, pause, request runs; plain speech is ignored. **Not tried with the user's voice.** The saved settings file still shows the wake word off; it is switched on once at the next start (`voice.wakeVersion`). |
+| While Jarvin is doing a task (a tool has been used), only "stop", "cancel", "wait", "pause", "be quiet", "enough" interrupt it. | Checked with generated speech (`node scripts/voice-stop-e2e.mjs`): an unrelated sentence was ignored while the task ran, "Stop that." ended it. Not run on a real task with the user's voice. The voice log still prints "running it" for a sentence that is then ignored. |
+| Bare "stop" is obeyed without the name. | Checked as part of the stop check above. |
+| End of speech is judged against the speaker's own loudness, so steady music or TV does not hold a request open to the 12 s cap. | Built, unit-tested. Not measured in a noisy room. |
+| The name is matched by sound (Jarwin, Charvin, Javin, "Jar vin"). A repeated bare "Jarvin" no longer gets sent to the model as a request. | Checked with generated speech (`--hey`, `--wake`, `--wake-pause`). Cost: a sentence starting with Gavin, Devin or Darwin also matches. |
+| Recognizer: set to Qwen3-ASR. When Windows blocks its engine, Jarvin falls back to distil-small.en, then whisper-base.en, then moonshine, and says so only in the voice log. | **This is the main known fault.** The block comes and goes between launches (see Known problems), so the recognizer in use changes from session to session without the user being told. |
+| Spoken replies: Piper "joe" ships inside the app; the worker falls back from Kokoro to Piper when Kokoro's engine is blocked. | Checked (`npm run check:natural-voice`). Not listened to through speakers. |
 
-Why the user's very first voice attempt on 11 Nov produced nothing was never confirmed: the voice log is kept on screen only. The most likely cause was the name not being recognised; the name is no longer required.
+**Making it reliable ([VOICE-DESIGN.md](VOICE-DESIGN.md))**
+
+| Step | What | State |
+|---|---|---|
+| Design | Five layers: mic switch, neural voice detector (Silero), a dedicated "hey jarvis" wake-word model (openWakeWord), one named recognizer chosen by test, confidence filtering; a fixed table of turn rules; a fast "stop" path; push-to-talk. | Written 12 Nov. |
+| 0 | Compare installed recognizers on the same 20 recordings in Settings → Voice test. | **Live on the user’s recordings, 12 Nov.** Qwen3-ASR completed. Distil-small.en, whisper-base.en and Moonshine returned the same Transformers load error. All clips are saved locally. The dependency is present and loaded in fresh Electron probes. The failed run discarded its underlying exception, so its exact cause is unresolved. |
+| 1 | Show the active recognizer on screen; never switch silently; use the winner of step 0. | Not built. |
+| 2 | Silero voice detector instead of the loudness threshold. | Not built. |
+| 3 | Dedicated wake-word model and fast "stop". | Not built. Whether the ready-made "hey jarvis" model fires on "Hey Jarvin" in the user's voice is unknown. |
+| 4 | Drop low-confidence and noise-phrase results; show "Heard: …" before acting. | Not built. |
+| 5 | Push-to-talk. | Not built. |
+| 6 | Re-run the voice test and a 30-minute room test with a count of false triggers. | Not done. |
+
+History of the listening rules, because they changed three times: always listening with the wake word (to 10 Nov); mic switch with no wake word (11 Nov, user tried it, basic flow worked); mic switch plus "Hey Jarvin" (12 Nov, user decision, because stray sound was still being picked up).
 
 ### 2. Desktop tasks
 
@@ -30,57 +49,70 @@ Why the user's very first voice attempt on 11 Nov produced nothing was never con
 | Open or restore apps, new blank document, list/focus/minimize/maximize/restore/snap windows, two apps side by side. | Live (9 Nov). |
 | Type exactly (via clipboard), save a document with verification, find and open a user file. | Live (9 and 10 Nov). |
 | Chrome search and read results; describe a window or the screen with the vision model; Chrome to Notepad to save. | Live (9 Nov). |
-| Volume up/down; "raise then lower the volume" finishes in two calls. | Live (11 Nov). An earlier bug that set the volume about 15 times per run is fixed and confirmed. |
+| Volume up/down; "raise then lower the volume" finishes in two calls. | Live (11 Nov). A bug that set the volume about 15 times per run is fixed and confirmed. |
 | Calculator sums by pressing buttons by name. Clear is pressed first, "12" is typed as 1 then 2, the window is brought forward, and the reply leads with what the display shows. | Live (11 Nov, qwen3:8b): 7 x 8 = 56, 9 x 6 = 54, 125 + 375 = 500, 12 x 12 = 144, 900 - 125 = 775, last run 8 s. On a cold start the first click can fail once and Jarvin recovers; the wait was lengthened after that and not re-run. |
-| No screenshot after every action: prompt and tool descriptions changed. | Live once: the Calculator task used no screenshots. Not measured across other tasks. |
+| No screenshot after every action. | Live once: the Calculator task used no screenshots. Not measured across other tasks. |
 | Clipboard, selected text, more shortcuts, brightness, dark/light mode, lock screen, visual click/type, tab and window traversal. | Built. Not run live. |
 
-### 3. Speed
+### 3. Documents
+
+| What | State |
+|---|---|
+| Create Word, Excel, PowerPoint and PDF files; edit Word and PowerPoint by replacing a phrase; write Excel cells; read text from images and scanned PDFs (offline English OCR). | Checked in isolation (`node scripts/office-check.cjs`): each format created, edited where supported, read back; image and PDF page recognised. |
+| Word through the real agent. | **Live (12 Nov, qwen3:8b):** "create a Word document … with the heading Shopping and three lines" made the file in one call with the right text. The heading is a plain line, not a Word heading style. |
+| Excel through the real agent. | **Live (12 Nov), after a fix.** The first run put the whole table in cell A1, because the model sent backslash-t instead of tabs, and Jarvin reported success anyway. Now escaped tabs, commas and pipe tables become real rows and columns, and the tool reports the shape ("3 rows x 2 columns"). Re-run: six cells, A1 to B3, correct. |
+| PowerPoint and PDF through the real agent. | Not tried. |
+| Limits. | Creation refuses an existing file. Word and PowerPoint edits need a unique phrase inside one formatted run. Excel values are stored as text. PDF can be created, not edited. |
+| Reading PDF, Word, CSV, Excel, PowerPoint. | PDF and Word extraction checked earlier with the real app's runtime; the others built. |
+
+### 4. Speed
 
 | What | State |
 |---|---|
 | Follow-up requests: the clock moved out of the system prompt and helper calls stopped reloading the model. | Live (10 Nov, qwen3:8b, 97 tools): 0.3 s of model time, was 10 to 18 s. |
 | First request after start-up: chat model warmed last, and the everyday desktop prompt is read into the model's cache at start-up. | Live (11 Nov): 2.3 s, was 10.3 s the day before and 20 to 41 s before that. |
-| Screen-reading steps on qwen3:8b. | **Still slow, not fixable in code:** 15 to 18 s per step, because qwen3:8b and the vision model do not fit in 8 GB VRAM together. qwen3.5:4b takes 2.2 to 3.4 s. Table under "Known problems". |
+| Screen-reading steps on qwen3:8b. | **Still slow, not fixable in code:** 15 to 18 s per step, because qwen3:8b and the vision model do not fit in 8 GB VRAM together. qwen3.5:4b takes 2.2 to 3.4 s. Table under "Known problems". The user chose to keep qwen3:8b. |
+| Speech recognition time per sentence (CPU). | Measured 12 Nov: moonshine-base 0.2 to 0.7 s, whisper-base.en and Qwen3-ASR about 1.3 to 1.7 s, distil-small.en 3.2 to 3.6 s. Running Whisper on the GPU through DirectML crashed in one try. |
 
-### 4. Staying alive and picking work back up
+### 5. Staying alive and picking work back up
 
 | What | State |
 |---|---|
 | Window reloads after its renderer crashes (at most 3 times in 10 minutes). | Live (11 Nov): crashed on purpose, reloaded, UI came back. |
 | A task cut off by a crash continues once after restart; a normal quit marks it paused instead. | Live (11 Nov): app killed mid-task, task resumed and finished, next restart started nothing. |
-| Start at sign-in, hidden, with mic and models waiting until first opened; tray icon (Open, mute, pause observation, Quit); reminder and routine catch-up after sleep or unlock. | Hidden start: checked in a temporary profile. Sign-in entry, tray menu and sleep catch-up: built, not exercised. |
-| Restart after the Windows main process crashes. | Checked in an isolated Windows Electron profile with `node scripts/crash-restart-e2e.mjs`. Killing the main process produced a fresh app instance with a working UI. Choosing Quit from the pet closed it. The watcher permits up to three restarts in ten minutes. |
+| Restart after the whole app dies. | Checked in an isolated profile (`node scripts/crash-restart-e2e.mjs`): killing the main process produced a fresh instance with a working UI; Quit from the pet closed it; at most three restarts in ten minutes. |
+| Start at sign-in, hidden, with mic and models waiting until first opened; tray icon (Open, mute, pause observation, Quit); catch-up of reminders and routines after sleep or unlock. | Hidden start checked in a temporary profile. Sign-in entry, tray menu and sleep catch-up: built, not exercised. The setting is off on this PC. |
 
-### 5. Reminders, routines, proactive notices
+### 6. Reminders, routines, proactive notices
 
 | What | State |
 |---|---|
 | One-time reminders with a Windows scheduled-task backup; task list; background commands. | Checked in isolated Electron. Native notification not confirmed by eye. |
-| Daily and weekly reminders, edit pending reminders, snooze due occurrences. | Checked in the real Tasks panel with a temporary Windows profile. `npm run check:recovery-e2e` created a daily reminder, edited it to weekly, restarted the app overdue and snoozed the occurrence for ten minutes. The next weekly date was preserved. Native notification delivery still needs a physical check. |
+| Daily and weekly reminders, editing a pending reminder, snoozing a due one. | Checked in the real Tasks panel with a temporary profile (`npm run check:recovery-e2e`): daily created, edited to weekly, restarted overdue, snoozed ten minutes, next weekly date kept. |
 | Routines: optional "every day at HH:MM"; "Step by step" runs each step as its own request. | Checked (unit tests, isolated routine UI check). No scheduled run has fired live. |
-| Proactive notices (off by default): low-battery warning at 20% unplugged, due reminders said aloud; quiet hours, 4 spoken per hour, never acts. | Rules unit-tested. **Spoken reminder: live (11 Nov).** With the option on before launch, a reminder that became due was shown ("Reminder: Live test reminder") and audio playback started. Two earlier tests failed because of the test: Jarvin blocks page reloads, so a setting changed from outside never reached the open window. Whether the voice was audible was not checked by ear. Battery reading unchecked on this laptop. |
-| Optional notices for a finished Ollama download, a finished or failed Jarvin background command, and an upcoming local reminder containing “meeting”. | Separate switches in Settings. Meeting reminders announce once per occurrence within ten minutes. Event tests cover opt-in, failed download suppression and meeting deduplication. Live delivery through the speakers is pending. |
+| Proactive notices (off by default, and off on this PC): low-battery warning at 20% unplugged; due reminders said aloud; quiet hours; 4 spoken per hour; never acts. | Spoken reminder **live (11 Nov)**: shown and audio started; not checked by ear. Battery reading unchecked on this laptop. |
+| Optional notices for a finished model download, a finished or failed background command, and a reminder containing “meeting” within ten minutes. | Checked on Windows in isolated Electron. A real background command, meeting reminder and Ollama pull each produced the expected toast. |
 
-### 6. The pet, the icon and the look
+### 7. The pet, the icon and the look
 
 | What | State |
 |---|---|
 | Pet is a 3D-rendered cream plush with headphones and a chest heart, generated as Jarvin's own character. Used for the floating pet, the main-window portrait and chat avatar, and the app icon. | Built 10 and 11 Nov from full-size renders (`assets/pet-source`, `scripts/cutout-pet.cjs`, `scripts/make-icon.cjs`). Seen as still captures. |
 | Four poses swapped by state: standing (idle), waving (speaking), hand on headphone (listening), hand at chin (working). | Built. The swap and the movement were not watched in the running app. |
+| Round microphone button on the pet. | Checked in the extracted morning package using a generated microphone. Clicking the button turned listening off and back on. A physical-microphone check remains open. |
 | Desktop, Start-menu and folder shortcuts show the new icon. | Re-saved 11 Nov; Windows returns the new icon. Not looked at on the desktop itself. |
 
-### 7. Packaging and code health
+### 8. Packaging and code health
 
 | What | State |
 |---|---|
-| Zip build `release\Jarvin-0.1.0-win.zip`, 282 MB, built 11 Nov 22:33 before the later reminder, notice, restart and document changes. | Checked: unzipped copy contains the pet, voice and icon and starts (hidden, separate profile, safe mode). Voice, Ollama and a real task not tried from the zip. |
-| Setup .exe installer. | **Blocked on this PC** by Smart App Control. A CI job to build it elsewhere exists and has never run (the project is not on GitHub). |
+| Zip build `release\Jarvin-0.1.0-win.zip`, 322 MB, built 12 Nov 08:38. | **Out of date:** it has the "Hey Jarvin" rule and the spreadsheet fix but not the voice test, which was built later the same day. The 08:17 build was unzipped and started; this one was not. An extracted morning ZIP passed the synthetic microphone, neural voice interruption and pet button check with a fake chat server. The evening voice test requires a new package. |
+| Setup .exe installer. | Smart App Control blocked the local NSIS build. The source is public on GitHub. Windows installer CI and signing are tracked separately. |
 | Renderer `init()` split from 771 lines to about 110. | Checked by the recovery, assistant and memory UI checks. Terminal panel and settings dialog not clicked through. |
-| Isolated voice checks (`scripts/handsfree-e2e.mjs`) updated for the microphone switch and the appended clock; new `--wake`, `--wake-pause`, `--barge` variants. | Pass, except `--qwen`, which cannot load the blocked module. |
+| Check scripts. | `handsfree-e2e.mjs` (variants `--stronger`, `--widget`, `--interrupt`, `--hey`, `--wake`, `--wake-pause`, `--barge`, `--qwen`), `voice-stop-e2e.mjs`, `voice-test-e2e.mjs`, `office-check.cjs`, `crash-restart-e2e.mjs`, `recovery-e2e.mjs`, `assistant-ui-e2e.mjs`. All passed on their last run on 12 Nov; `--qwen` passes only when Windows lets the engine load, and `--barge` is expected to send nothing now that the name is required. |
 
 ### Known problems on this PC
-- **Smart App Control blocks unsigned files.** It blocks the NSIS setup stub, so a Setup .exe can be neither built nor run here (the zip is the working build). Since 10 Nov 18:17 it also blocks `sherpa-onnx.node`, which takes out Qwen3-ASR and Kokoro; the fallbacks cover both. The real fix is code signing.
+- **Smart App Control blocks unsigned files, and not consistently.** It blocks the NSIS setup stub, so a Setup .exe can be neither built nor run here (the zip is the working build). It also blocks parts of the sherpa-onnx engine behind Qwen3-ASR and Kokoro on some launches and not on others: `sherpa-onnx.node` from 10 Nov 18:17 to 22:35, loading again on 12 Nov, `sherpa-onnx-c-api.dll` blocked at 08:43 on 12 Nov, the Qwen check passing minutes later. So which recognizer Jarvin uses varies from session to session. The lasting fix is code signing; the design in VOICE-DESIGN.md avoids depending on it.
 - **qwen3:8b is slow for screen tasks.** Measured per screen step (one vision call plus the next chat step, direct Ollama calls, synthetic screenshots):
 
   | Setup | Per screen step |
@@ -91,7 +123,7 @@ Why the user's very first voice attempt on 11 Nov produced nothing was never con
   | qwen3.5:4b + qwen3-vl | 3.1 to 3.4 s |
   | qwen3.5:4b for chat and vision | 2.2 to 2.5 s |
 
-  qwen3.5:4b's own vision quality was not compared with qwen3-vl, and it stalled more often than qwen3:8b in earlier runs. The matched task comparison below used qwen3-vl for both chat models.
+  qwen3.5:4b's own vision quality was not compared with qwen3-vl, and it stalled more often than qwen3:8b in earlier runs.
 - The thinking pose of the pet has a slight frown.
 - Calculator windows opened by the 11 Nov tests were left open.
 
@@ -106,26 +138,35 @@ Both installed chat models completed all four requests. Times are elapsed second
 | Copy the file with exact content | 1.60 | 1.88 |
 | Click the blue button on a generated screen and verify the new result with qwen3-vl | 29.69 | 20.60 |
 
-The file and reminder trials used the agent loop, four available tools and temporary workspace data. The visual trial used simulated input. Reproduce with `scripts/model-task-comparison.ts` and `scripts/live-visual-agent.ts` (set `JARVIN_TEST_CHAT_MODEL`). On 12 November the user selected the existing `qwen3:8b` laptop default.
+The file and reminder trials used the agent loop, four available tools and temporary workspace data. The visual trial used simulated input. Reproduce with `scripts/model-task-comparison.ts` and `scripts/live-visual-agent.ts` (set `JARVIN_TEST_CHAT_MODEL`). On 12 November the user chose to keep `qwen3:8b`.
+
+### Settings on this PC right now
+Chat model qwen3:8b; vision model qwen3-vl:4b-instruct; speech recognizer Qwen3-ASR (with the silent fallback described above); microphone off at start; proactive notices off; start at sign-in off.
 
 ### Still to do
-- Check proactive notices with a real download, background command and meeting reminder.
-- With the user at the laptop: "stop" during a real task, the pet's mic button, watching the pet poses, hearing the Piper voice, a microphone accuracy session, the wider live checklist below.
-- Put the project on GitHub and run the CI `installer` job. Code signing.
+1. Diagnose the three shared-loader failures and repeat the comparison using the 20 existing clips. No new recording session is needed for this comparison.
+2. Voice steps 1 to 6 of VOICE-DESIGN.md, in order.
+3. Rebuild the zip (it predates the voice test).
+4. Fix the misleading "running it" line in the voice log.
+5. Try PowerPoint and PDF creation through the real agent.
+6. Check the battery warning on hardware and listen to the notices. The download, background command and meeting toasts were observed in an isolated Electron profile with a real Ollama pull.
+7. With the user at the laptop: "stop" during a real task, the pet's mic button, watching the pet poses, hearing the Piper voice, the wider live checklist further down this file.
+8. Finish installer CI in the public [Jarvin repository](https://github.com/Navaz-Chilakala/jarvin), then verify signing and a clean Windows installation.
 
 ### Dropped or out of scope
 - Wi-Fi, Bluetooth and Do Not Disturb switches (dropped by the user; a Wi-Fi/Bluetooth version was built and removed on 10 Nov).
 - Browser control through the extension (dropped by the user for now).
 - A real Windows service (replaced by background mode; reasons in [SERVICE-DESIGN.md](SERVICE-DESIGN.md)).
-- Always-on listening and the wake word as the default (replaced on 11 Nov by the microphone switch, at the user's request).
+- Always-on listening (replaced on 11 Nov by the microphone switch).
 - Privacy gap for shell and MCP tools (deliberately skipped for now).
 - Phone controller.
 
 ### Day log
-- **12 Nov:** `node scripts/office-check.cjs` passed in an isolated Electron profile on this laptop. The tools created DOCX, XLSX and PPTX files, edited their text, and read it back. The same check created and read a PDF, recognized its rendered page, and recognized an image using bundled offline English OCR. Creation refuses an existing destination. DOCX and PPTX replacement currently needs a unique phrase within a single formatted text run. Spreadsheet writes are literal cell values. PDF output supports creation.
 - **9 Nov:** first live desktop runs with qwen3.5:4b; launch, typing, save, Chrome, Calculator; many small fixes (see "Live desktop findings" below).
 - **10 Nov:** auto-resume, installer diagnosis and zip build, prompt caching and warm order, speech and voice fallbacks, fewer-screenshot wording, bundled voice, routine schedule and step mode, renderer split, proactive notices, background mode, new plush pet and icon.
-- **11 Nov:** prompt priming, volume loop confirmed fixed, voice check scripts repaired, crash reload and auto-resume confirmed live, pet poses, listening reworked twice (first around the wake word, then to an explicit microphone switch), Calculator answers fixed, zip rebuilt.
+- **11 Nov:** prompt priming, volume loop confirmed fixed, voice check scripts repaired, crash reload and auto-resume confirmed live, pet poses, listening reworked twice (first around the wake word, then to an explicit microphone switch), Calculator answers fixed, zip rebuilt, reminder repeat/edit/snooze, more proactive notices, restart after a full crash, matched model runs.
+- **12 Nov, morning:** document tools checked in isolation (`office-check.cjs`) and then through the real agent; the Excel one-cell bug found and fixed; the "only stop interrupts a task" rule checked; "Hey Jarvin" made required again at the user's request, and a bug that sent a repeated "Jarvin" as a request fixed; zip rebuilt at 08:38.
+- **12 Nov, later:** the user reported that Jarvin often hears the wrong words. Cause investigated (intermittent Windows block of the speech engine, name misheard by fallback models, loudness-only speech detection, no measurement on the user's voice); recognizer speeds measured; VOICE-DESIGN.md written; the voice test (step 0) built and checked end to end with generated speech. Tracker rewritten in the evening.
 
 ## Architecture in use
 
