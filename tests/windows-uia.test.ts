@@ -140,6 +140,9 @@ test('a window title or app "Title" string resolves to the single live window wi
   assert.deepEqual(requests.at(-1).window, window);
   await desktop.manageWindow('calculator', 'restore', undefined, undefined, signal);
   assert.equal(requests.at(-1).action, 'restore');
+  // Models also pass the launch_app report back without the quotes.
+  await desktop.manageWindow('ApplicationFrameHost Calculator', 'maximize', undefined, undefined, signal);
+  assert.equal(requests.at(-1).action, 'maximize');
   await assert.rejects(desktop.manageWindow('no', 'restore', undefined, undefined, signal), /expired/);
 });
 

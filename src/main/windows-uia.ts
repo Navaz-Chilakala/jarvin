@@ -77,7 +77,7 @@ export class WindowsAutomation {
     if (q.length < 3) return undefined;
     // launch_app reports a new window as: App "Title". Models pass that back with or without the quotes.
     const live = [...this.windows.values()].filter((w) => w.expires >= Date.now());
-    const hits = live.filter((w) => { const title = w.window.title.toLowerCase(), app = w.window.app.toLowerCase(); return title.includes(q) || app === q || q === ` ${title}` || (q.startsWith(` `) && title.includes(q.slice(app.length + 1))); });
+    const hits = live.filter((w) => { const title = w.window.title.toLowerCase(), app = w.window.app.toLowerCase(); return title.includes(q) || app === q || q === `${app} ${title}` || (q.startsWith(`${app} `) && title.includes(q.slice(app.length + 1))); });
     return hits.length === 1 ? hits[0] : undefined;
   }
   /** Like win(), but when a title or app name is not known yet (right after launch_app) the window list is refreshed once. */
