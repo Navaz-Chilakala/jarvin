@@ -660,6 +660,13 @@ export function initVoice(d: VoiceDeps) {
   /* ---- automatic listening ---- */
   const hfBtn = $<HTMLButtonElement>('hfBtn');
   const hfLog: string[] = [];
+  /** Adds a line to the on-screen voice log (kept in memory only, last 14 lines). */
+  const logVoice = (line: string) => {
+    hfLog.push(line.startsWith('   →') ? line : `${new Date().toLocaleTimeString()}  ${line}`);
+    if (hfLog.length > 14) hfLog.shift();
+    const box = document.getElementById('vHfLog');
+    if (box) box.textContent = hfLog.join('\n');
+  };
   let lastIgnoredNote = 0;
   // Speech onset fires on any loud sound (keyboard, fan, other people) before a transcript exists, so it never
   // cancels a task. With the name required it does not even silence Jarvin's voice: only "Hey Jarvin …" or "stop"
@@ -689,10 +696,10 @@ export function initVoice(d: VoiceDeps) {
     busyReason: () => 'you are recording or Jarvin is transcribing',
     onSpeechStart: silenceOwnVoice,
     onLog: (line) => {
-      hfLog.push(`${new Date().toLocaleTimeString()}  ${line}`);
-      if (hfLog.length > 14) hfLog.shift();
-      const box = document.getElementById('vHfLog');
-      if (box) box.textContent = hfLog.join('\n');
+      // The accurate recognizer being blocked must never pass unnoticed: on the user's voice the fallback gets four
+      // times as many words wrong and hears the name 4 times in 10 instead of 10.
+      if (/could not load on this PC/.test(line)) { const warn = 'Windows blocked the accurate speech engine this time. Jarvin is using a weaker one and will mishear more. Restart Jarvin to try again.'; show(esc(warn), 15000, 'bad'); d.toast(warn); }
+      logVoice(line);
     },
     onLevel: (level, thr, speaking) => {
       d.onMicLevel?.(Math.min(1, level / Math.max(thr * 3, .03)), speaking);
@@ -702,14 +709,15 @@ export function initVoice(d: VoiceDeps) {
       if (b) (b as HTMLElement).style.width = `${Math.min(100, Math.round((level / Math.max(thr * 2, 0.02)) * 100))}%`;
     },
     onResult: (r) => {
-      if (speaker.heardOwnVoice(r.text)) { show('Ignored my own voice.', 900, 'ok'); return; }
+      if (speaker.heardOwnVoice(r.text)) { logVoice('   → ignored: that was my own voice.'); show('Ignored my own voice.', 900, 'ok'); return; }
       // Once Jarvin is carrying out a task (it has used a tool), only "stop" interrupts it. Other speech and sounds
       // are left alone so the work continues. While it is only talking, speaking over it still replaces the reply.
       if (d.actions.isActing?.()) {
         const kind = r.command?.type;
         const isStop = kind === 'stop' || kind === 'stopAll' || /^(?:jarvin[,\s]+)?(?:please\s+)?(?:stop|cancel|abort|wait|pause|quiet|be quiet|enough)(?:\s+(?:it|that|now|please|everything|all))*[\s.!]*$/i.test(r.text.trim());
-        if (!isStop) { show('Working. Say "stop" to interrupt.', 2500, 'ok'); return; }
-      }
+        if (!isStop) { logVoice('   → ignored: a task is running. Say "stop" to interrupt it.'); show('Working. Say "stop" to interrupt.', 2500, 'ok'); return; }
+        logVoice('   → stopping the task.');
+      } else logVoice('   → running it.');
       show(`Heard: ${esc(r.text.slice(0, 80))}`, 1200, 'ok');
       const stopped = d.actions.isRunning() || speaker.activeReply
         ? (speaker.interrupt(), d.actions.interruptReply().then(() => null, (error: any) => String(error?.message ?? error)))

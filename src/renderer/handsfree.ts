@@ -90,7 +90,8 @@ export function createHandsFree(d: HandsFreeDeps) {
         d.onWake?.();
       } else if (!r.silent && r.text) {
         armedUntil = 0;
-        d.onLog?.(`Heard "${r.text.slice(0, 60)}" → running it (${r.ms} ms transcription; ${Math.round(performance.now() - endedAt)} ms since segment closed).`);
+        // Only what was heard is logged here. Whether it is run, ignored or used to stop a task is logged by the receiver.
+        d.onLog?.(`Heard "${r.text.slice(0, 60)}" (${r.ms} ms transcription; ${Math.round(performance.now() - endedAt)} ms since segment closed).`);
         d.onResult(r);
       } else if (r.why === 'nowake') { d.onLog?.(`Ignored (no "Jarvin" at the start): "${(r.heard ?? '').slice(0, 60)}"`); d.onIgnored?.(r.heard ?? ''); }
       else if (r.why === 'quiet') d.onLog?.('Too quiet to be speech, ignored. Check the level above.');

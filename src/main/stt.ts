@@ -35,10 +35,16 @@ export class SttService {
     private workerFile: string,
     private cacheDir: string,
     private onProgress: (p: VoiceProgress) => void,
+    /**
+     * Run every recognizer in its own process instead of a worker thread. A second thread that loads the speech
+     * libraries while another thread already has them (the live listener, the Piper voice) fails inside Electron,
+     * which the voice test hit on the user's PC ("Speech engine is not installed" for three recognizers).
+     */
+    private separateProcess = false,
   ) {}
 
   private spawn(model: string): Worker | ChildProcess {
-    const w: Worker | ChildProcess = model === QWEN_ASR_MODEL
+    const w: Worker | ChildProcess = model === QWEN_ASR_MODEL || this.separateProcess
       ? fork(this.workerFile, [], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, serialization: 'advanced', stdio: ['ignore', 'ignore', 'ignore', 'ipc'] })
       : new Worker(this.workerFile);
     w.on('message', (m: OutMsg) => this.handle(m));

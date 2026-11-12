@@ -20,11 +20,11 @@ Jarvin runs as a Windows Electron app with a TypeScript main process and rendere
 |---|---|
 | Microphone is off until switched on, by the "Mic off / Listening" button in the main window or the round mic button on the floating pet (grey with red slash = off, green ring = on). | **Live by the user (11 Nov): basic flow works.** A click on the pet's button was not reported. |
 | "Hey Jarvin" is required (user decision, 12 Nov). With the mic on, Jarvin acts only on speech that starts with "Hey Jarvin", "Jarvin" or "Jarvis". Everything else is ignored and noted quietly in the voice status line. No name-free window after a reply; a loud sound no longer cuts Jarvin's voice. The name alone keeps Jarvin waiting 10 s for the request. | Checked with generated speech on Whisper base and distil-small: "Hey Jarvis, …" and "Jarvin, …" run with the name removed; name, pause, request runs; plain speech is ignored. **Not tried with the user's voice.** The saved settings file still shows the wake word off; it is switched on once at the next start (`voice.wakeVersion`). |
-| While Jarvin is doing a task (a tool has been used), only "stop", "cancel", "wait", "pause", "be quiet", "enough" interrupt it. | Checked with generated speech (`node scripts/voice-stop-e2e.mjs`): an unrelated sentence was ignored while the task ran, "Stop that." ended it. Not run on a real task with the user's voice. The voice log still prints "running it" for a sentence that is then ignored. |
+| While Jarvin is doing a task (a tool has been used), only "stop", "cancel", "wait", "pause", "be quiet", "enough" interrupt it. | Checked with generated speech (`node scripts/voice-stop-e2e.mjs`): an unrelated sentence was ignored while the task ran, "Stop that." ended it. Not run on a real task with the user's voice. The voice log now says what happened to each sentence (fixed 12 Nov, night): "Heard …" and then one of "→ running it", "→ ignored: a task is running. Say "stop" to interrupt it", "→ stopping the task", "→ ignored: that was my own voice". Seen in the `voice-stop-e2e.mjs` run. |
 | Bare "stop" is obeyed without the name. | Checked as part of the stop check above. |
 | End of speech is judged against the speaker's own loudness, so steady music or TV does not hold a request open to the 12 s cap. | Built, unit-tested. Not measured in a noisy room. |
 | The name is matched by sound (Jarwin, Charvin, Javin, "Jar vin"). A repeated bare "Jarvin" no longer gets sent to the model as a request. | Checked with generated speech (`--hey`, `--wake`, `--wake-pause`). Cost: a sentence starting with Gavin, Devin or Darwin also matches. |
-| Recognizer: set to Qwen3-ASR. When Windows blocks its engine, Jarvin falls back to distil-small.en, then whisper-base.en, then moonshine, and says so only in the voice log. | **This is the main known fault.** The block comes and goes between launches (see Known problems), so the recognizer in use changes from session to session without the user being told. |
+| Recognizer: Qwen3-ASR, now given the expected words "Jarvin, Hey Jarvin, stop". When Windows blocks its engine, Jarvin falls back to distil-small.en, then whisper-base.en, then moonshine. | **Measured on the user's voice (12 Nov):** Qwen3-ASR with the hint gets 1 word wrong in 160 and hears the wake phrase 10 times in 10. The fallback distil-small.en gets 13 wrong in 160 and hears the wake phrase 4 times in 10. This explains "I say one thing, it hears another": on launches where Windows blocks Qwen, Jarvin was silently using the fallback. The block itself is not fixed; it is now announced loudly. |
 | Spoken replies: Piper "joe" ships inside the app; the worker falls back from Kokoro to Piper when Kokoro's engine is blocked. | Checked (`npm run check:natural-voice`). Not listened to through speakers. |
 
 **Making it reliable ([VOICE-DESIGN.md](VOICE-DESIGN.md))**
@@ -32,13 +32,25 @@ Jarvin runs as a Windows Electron app with a TypeScript main process and rendere
 | Step | What | State |
 |---|---|---|
 | Design | Five layers: mic switch, neural voice detector (Silero), a dedicated "hey jarvis" wake-word model (openWakeWord), one named recognizer chosen by test, confidence filtering; a fixed table of turn rules; a fast "stop" path; push-to-talk. | Written 12 Nov. |
-| 0 | Compare installed recognizers on the same 20 recordings in Settings → Voice test. | **Live on the user’s recordings, 12 Nov.** Qwen3-ASR completed. Distil-small.en, whisper-base.en and Moonshine returned the same Transformers load error. All clips are saved locally. The dependency is present and loaded in fresh Electron probes. The failed run discarded its underlying exception, so its exact cause is unresolved. |
-| 1 | Show the active recognizer on screen; never switch silently; use the winner of step 0. | Not built. |
+| 0 | Voice test: read 20 sentences once; every installed recognizer is scored on those recordings. Settings, Voice, "Voice test: find the best recognizer for my voice". | **Done, live, on the user's voice (12 Nov evening).** The user recorded all 20 sentences. In that first run only Qwen3-ASR completed; distil-small.en, whisper-base.en and Moonshine reported "Speech engine is not installed". Cause: the test loaded them in worker threads while the running app already had the speech libraries loaded in other threads; the real error was being discarded. They now run in their own process and the real error is reported. The comparison was then re-run on the saved recordings (`scripts/voice-test-run.ts`) and all four completed. Results below. Not yet re-run from inside the dialog. |
+| 1 | Show the active recognizer; never switch silently; use the winner of step 0. | **Partly built 12 Nov.** Qwen3-ASR is the winner and is already the saved setting. When Windows blocks it and Jarvin falls back, a red warning and a pop-up now say so ("Windows blocked the accurate speech engine this time… will mishear more. Restart Jarvin to try again."). Not seen live. Still missing: the active recognizer named on screen at all times. |
 | 2 | Silero voice detector instead of the loudness threshold. | Not built. |
 | 3 | Dedicated wake-word model and fast "stop". | Not built. Whether the ready-made "hey jarvis" model fires on "Hey Jarvin" in the user's voice is unknown. |
 | 4 | Drop low-confidence and noise-phrase results; show "Heard: …" before acting. | Not built. |
 | 5 | Push-to-talk. | Not built. |
 | 6 | Re-run the voice test and a 30-minute room test with a count of false triggers. | Not done. |
+
+**Results on the user's own voice (20 recordings, 160 scored words, 12 Nov)**
+
+| Recognizer | Wrong words | Sentences exact | "Hey Jarvin" heard | Time each |
+|---|---:|---:|---:|---:|
+| Qwen3-ASR with the name hint (now the default) | 1 (0.6%) | 19 of 20 | 10 of 10 | 2.2 s |
+| Qwen3-ASR without a hint (as the user first ran it) | 3 (1.9%) | 17 of 20 | 9 of 10 | 1.5 s |
+| distil-small.en (the silent fallback) | 13 (8.1%) | 11 of 20 | 4 of 10 | 3.2 s |
+| whisper-base.en | 13 (8.1%) | 11 of 20 | 1 of 10 | 1.3 s |
+| moonshine-base | 20 (12.5%) | 9 of 20 | 1 of 10 | 0.4 s |
+
+Without the hint Qwen wrote "Hey, Darwin" once, answered "Hey Jarvin, stop" in Chinese characters once, and heard "lock" as "log". Hints tried on the same recordings: none 3 wrong; "Jarvin" 5 wrong; "Hey Jarvin" 3 wrong; "Jarvin,Hey Jarvin,stop" 1 wrong; the last is now the default (`QWEN_HOTWORDS` in `src/main/stt-worker.ts`). The other recognizers wrote the name as "H R VIN", "H. Arvin", "Hedgehogin" and similar. Caution: the hint was chosen and measured on the same 20 recordings, so the real gain may be smaller; whether the hint makes Qwen "hear" the name in noise has not been tested. The recordings stay in `%APPDATA%\jarvin\voice-test` for re-testing.
 
 History of the listening rules, because they changed three times: always listening with the wake word (to 10 Nov); mic switch with no wake word (11 Nov, user tried it, basic flow worked); mic switch plus "Hey Jarvin" (12 Nov, user decision, because stray sound was still being picked up).
 
@@ -90,7 +102,7 @@ History of the listening rules, because they changed three times: always listeni
 | One-time reminders with a Windows scheduled-task backup; task list; background commands. | Checked in isolated Electron. Native notification not confirmed by eye. |
 | Daily and weekly reminders, editing a pending reminder, snoozing a due one. | Checked in the real Tasks panel with a temporary profile (`npm run check:recovery-e2e`): daily created, edited to weekly, restarted overdue, snoozed ten minutes, next weekly date kept. |
 | Routines: optional "every day at HH:MM"; "Step by step" runs each step as its own request. | Checked (unit tests, isolated routine UI check). No scheduled run has fired live. |
-| Proactive notices (off by default, and off on this PC): low-battery warning at 20% unplugged; due reminders said aloud; quiet hours; 4 spoken per hour; never acts. | Spoken reminder **live (11 Nov)**: shown and audio started; not checked by ear. Battery reading unchecked on this laptop. |
+| Proactive notices (off by default, and off on this PC): low-battery warning at 20% unplugged; due reminders said aloud; quiet hours; 4 spoken per hour; never acts. | Spoken reminder **live (11 Nov)**: shown and audio started; not checked by ear. Battery reading checked in the real app on 12 Nov (night): Jarvin read 84% and charging, matching Windows. The warning itself cannot fire while plugged in above 20%, so it was not seen on hardware: to see it, switch notices on, unplug and let the battery fall to 20%. |
 | Optional notices for a finished model download, a finished or failed background command, and a reminder containing “meeting” within ten minutes. | Checked on Windows in isolated Electron. A real background command, meeting reminder and Ollama pull each produced the expected toast. |
 
 ### 7. The pet, the icon and the look
@@ -98,16 +110,16 @@ History of the listening rules, because they changed three times: always listeni
 | What | State |
 |---|---|
 | Pet is a 3D-rendered cream plush with headphones and a chest heart, generated as Jarvin's own character. Used for the floating pet, the main-window portrait and chat avatar, and the app icon. | Built 10 and 11 Nov from full-size renders (`assets/pet-source`, `scripts/cutout-pet.cjs`, `scripts/make-icon.cjs`). Seen as still captures. |
-| Four poses swapped by state: standing (idle), waving (speaking), hand on headphone (listening), hand at chin (working). | Built. The swap and the movement were not watched in the running app. |
-| Round microphone button on the pet. | Checked in the extracted morning package using a generated microphone. Clicking the button turned listening off and back on. A physical-microphone check remains open. |
+| Four poses swapped by state: standing (idle), waving (speaking), hand on headphone (listening), hand at chin (working). | **Checked in the real app, 12 Nov (night):** each state loaded its own picture and movement (idle `pet.png`/float, working `pet-think.png`/think, speaking `pet-wave.png`/talk, listening `pet-listen.png`/listen), with a capture of each. Not watched by a person. |
+| Round microphone button on the pet. | **Checked in the real app with the real microphone, 12 Nov (night):** the button said "Microphone is off. Click to turn it on."; one click switched the microphone on and the pet showed listening; a second click switched it off. |
 | Desktop, Start-menu and folder shortcuts show the new icon. | Re-saved 11 Nov; Windows returns the new icon. Not looked at on the desktop itself. |
 
 ### 8. Packaging and code health
 
 | What | State |
 |---|---|
-| Zip build `release\Jarvin-0.1.0-win.zip`, 322 MB, built 12 Nov 08:38. | **Out of date:** it has the "Hey Jarvin" rule and the spreadsheet fix but not the voice test, which was built later the same day. The 08:17 build was unzipped and started; this one was not. An extracted morning ZIP passed the synthetic microphone, neural voice interruption and pet button check with a fake chat server. The evening voice test requires a new package. |
-| Setup .exe installer. | Smart App Control blocked the local NSIS build. The source is public on GitHub. Windows installer CI and signing are tracked separately. |
+| Zip build `release\Jarvin-0.1.0-win.zip`, 322 MB, built 12 Nov 21:24. | **Current.** Built from the 21:23 build output, which contains the voice test, the name hint, the weaker-engine warning and the truthful voice log. Unzipped to a temp folder and started: the main window opened. Nothing else was clicked in the unzipped copy; the voice checks were run against the source build, not this package. |
+| Setup .exe installer. | Smart App Control blocked the local NSIS build. **The GitHub installer job works:** the manual run of 12 Nov (14:52 UTC) built the Setup .exe and kept it as the `jarvin-installer` artifact (272 MB, unsigned). The same run's `build` job failed on 6 unit tests, all for one reason: the runner's temp folder is a short `RUNNER~1` path and the path tests compare it with the long form. Fixed in `.github/workflows/ci.yml` by pointing TEMP/TMP at the runner's own temp folder for the test step; **not pushed yet**, so not yet seen green. The installer was not downloaded or installed: this PC blocks unsigned installers, so a clean-install check needs a PC without Smart App Control or a signed build. Signing needs a bought certificate. |
 | Renderer `init()` split from 771 lines to about 110. | Checked by the recovery, assistant and memory UI checks. Terminal panel and settings dialog not clicked through. |
 | Check scripts. | `handsfree-e2e.mjs` (variants `--stronger`, `--widget`, `--interrupt`, `--hey`, `--wake`, `--wake-pause`, `--barge`, `--qwen`), `voice-stop-e2e.mjs`, `voice-test-e2e.mjs`, `office-check.cjs`, `crash-restart-e2e.mjs`, `recovery-e2e.mjs`, `assistant-ui-e2e.mjs`. All passed on their last run on 12 Nov; `--qwen` passes only when Windows lets the engine load, and `--barge` is expected to send nothing now that the name is required. |
 
@@ -144,14 +156,15 @@ The file and reminder trials used the agent loop, four available tools and tempo
 Chat model qwen3:8b; vision model qwen3-vl:4b-instruct; speech recognizer Qwen3-ASR (with the silent fallback described above); microphone off at start; proactive notices off; start at sign-in off.
 
 ### Still to do
-1. Diagnose the three shared-loader failures and repeat the comparison using the 20 existing clips. No new recording session is needed for this comparison.
-2. Voice steps 1 to 6 of VOICE-DESIGN.md, in order.
-3. Rebuild the zip (it predates the voice test).
-4. Fix the misleading "running it" line in the voice log.
-5. Try PowerPoint and PDF creation through the real agent.
-6. Check the battery warning on hardware and listen to the notices. The download, background command and meeting toasts were observed in an isolated Electron profile with a real Ollama pull.
-7. With the user at the laptop: "stop" during a real task, the pet's mic button, watching the pet poses, hearing the Piper voice, the wider live checklist further down this file.
-8. Finish installer CI in the public [Jarvin repository](https://github.com/Navaz-Chilakala/jarvin), then verify signing and a clean Windows installation.
+1. **User: restart Jarvin and try by voice** with the name hint in place. Report whether the red "weaker speech engine" warning appears and how requests are heard. (The three loader failures are diagnosed and fixed, and the comparison was repeated on the 20 clips: see the results table in section 1.)
+2. Stop the weaker recognizer taking over at all: retry loading the accurate engine at start-up (untested stopgap), then code signing (lasting fix).
+3. Voice steps 1 to 6 of VOICE-DESIGN.md, in order.
+4. ~~Rebuild the zip.~~ Done 12 Nov 21:24, unzipped and started.
+5. ~~Fix the misleading "running it" line in the voice log.~~ Done 12 Nov (night).
+6. Try PowerPoint and PDF creation through the real agent.
+7. Battery reading checked (84%, charging, matches Windows). Left for the user: see the warning fire at 20% unplugged, and listen to a notice. The download, background command and meeting toasts were observed in an isolated Electron profile with a real Ollama pull.
+8. Pet mic button and pet poses checked in the real app (12 Nov, night). Left for the user, because they need a voice and ears: say "stop" during a real task, hear the Piper voice, the wider live checklist further down this file.
+9. Installer CI: the installer job builds the Setup .exe. Left: push the test-step fix so the `build` job goes green (waiting for the user's go-ahead), try the installer on a PC without Smart App Control, and signing (needs a certificate).
 
 ### Dropped or out of scope
 - Wi-Fi, Bluetooth and Do Not Disturb switches (dropped by the user; a Wi-Fi/Bluetooth version was built and removed on 10 Nov).
@@ -167,6 +180,8 @@ Chat model qwen3:8b; vision model qwen3-vl:4b-instruct; speech recognizer Qwen3-
 - **11 Nov:** prompt priming, volume loop confirmed fixed, voice check scripts repaired, crash reload and auto-resume confirmed live, pet poses, listening reworked twice (first around the wake word, then to an explicit microphone switch), Calculator answers fixed, zip rebuilt, reminder repeat/edit/snooze, more proactive notices, restart after a full crash, matched model runs.
 - **12 Nov, morning:** document tools checked in isolation (`office-check.cjs`) and then through the real agent; the Excel one-cell bug found and fixed; the "only stop interrupts a task" rule checked; "Hey Jarvin" made required again at the user's request, and a bug that sent a repeated "Jarvin" as a request fixed; zip rebuilt at 08:38.
 - **12 Nov, later:** the user reported that Jarvin often hears the wrong words. Cause investigated (intermittent Windows block of the speech engine, name misheard by fallback models, loudness-only speech detection, no measurement on the user's voice); recognizer speeds measured; VOICE-DESIGN.md written; the voice test (step 0) built and checked end to end with generated speech. Tracker rewritten in the evening.
+- **12 Nov, evening:** the user recorded the 20 sentences and ran the voice test. Three recognizers failed to load inside the app (fixed: they run in their own process now, and the real load error is reported). Comparison re-run on the saved recordings: Qwen3-ASR far ahead of the three others on the user's voice. A name hint ("Jarvin,Hey Jarvin,stop") cut Qwen's mistakes from 3 to 1 in 160 words and made the wake phrase 10 of 10; it is now the default. A loud warning was added for the sessions where Windows blocks Qwen and the weaker recognizer takes over. 347 tests pass; the Qwen voice check and the voice-test check pass. Not yet tried live by voice with the hint. Next: stop the fallback happening at all (code signing is the lasting fix; retrying the engine load at start-up is an untested stopgap).
+- **12 Nov, night:** voice log made truthful (it says whether a heard sentence was run, ignored or used to stop). In the real app: battery reading correct, the pet's mic button switches the real microphone on and off, all four pet poses load with their movement. CI looked at: installer job already builds the Setup .exe; the test job failed on short temp paths, fixed in the workflow, not pushed. Zip rebuilt (see section 8).
 
 ## Architecture in use
 

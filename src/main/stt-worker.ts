@@ -19,6 +19,11 @@ export type OutMsg =
 // process with the separate ONNX runtime used by the natural Piper voice.
 const send = (m: OutMsg) => parentPort ? parentPort.postMessage(m) : process.send?.(m);
 
+/** Words the Qwen recognizer is told to expect. Without the name it writes "Darwin", or switches to Chinese on a short "Hey Jarvin, stop". */
+// Chosen on the user's own 20 recordings (12 Nov): no hint 3 wrong of 160 and the name 9 of 10; this hint 1 wrong of 160
+// and the name 10 of 10. "Jarvin" alone made it worse (5 wrong), so the phrase and "stop" are part of the hint.
+const QWEN_HOTWORDS = 'Jarvin,Hey Jarvin,stop';
+
 let pipe: any = null;
 let qwen: any = null;
 let qwenVad: any = null;
@@ -63,7 +68,7 @@ async function load(cacheDir: string, offline: boolean, model: string) {
           convFrontend: path.join(root, 'conv_frontend.onnx'),
           encoder: path.join(root, 'encoder.int8.onnx'),
           decoder: path.join(root, 'decoder.int8.onnx'),
-          tokenizer: path.join(root, 'tokenizer'), hotwords: '',
+          tokenizer: path.join(root, 'tokenizer'), hotwords: process.env.JARVIN_QWEN_HOTWORDS ?? QWEN_HOTWORDS,
           maxTotalLen: 512, maxNewTokens: 128,
         },
         tokens: '', numThreads: 4, provider: 'cpu', debug: 0,
@@ -82,8 +87,11 @@ async function load(cacheDir: string, offline: boolean, model: string) {
   let tf: any;
   try {
     tf = require('@huggingface/transformers');
-  } catch {
-    throw new Error('Speech engine is not installed. Run "npm install" in the Jarvin folder, then restart.');
+  } catch (e: any) {
+    // Say which it is: a missing package needs "npm install"; anything else is a load failure with its own cause.
+    const why = String(e?.message ?? e).split('\n')[0].slice(0, 160);
+    if (e?.code === 'MODULE_NOT_FOUND' && /@huggingface\/transformers'/.test(why)) throw new Error('Speech engine is not installed. Run "npm install" in the Jarvin folder, then restart.');
+    throw new Error(`Speech engine could not load: ${why}`);
   }
   tf.env.cacheDir = cacheDir;
   // The cache is laid out as <cacheDir>/<model>/<file>. Offline mode must permit

@@ -61,11 +61,11 @@ export class VoiceTest {
   }
 
   /** Runs every usable recognizer over the recordings. One recognizer is loaded at a time. */
-  async run(onProgress: (p: { model: string; done: number; total: number }) => void): Promise<VoiceTestReport> {
+  async run(onProgress: (p: { model: string; done: number; total: number }) => void, only?: (model: string) => boolean, save = true): Promise<VoiceTestReport> {
     if (this.running) throw new Error('The voice test is already running.');
     const clips = this.recorded();
     if (clips.length < 5) throw new Error('Record at least 5 sentences first.');
-    const models = this.usable();
+    const models = this.usable().filter((m) => !only || only(m));
     if (!models.length) throw new Error('No speech recognizer is installed.');
     this.running = true;
     try {
@@ -73,7 +73,7 @@ export class VoiceTest {
       const total = models.length * clips.length;
       let done = 0;
       for (const model of models) {
-        const stt = new SttService(this.dirs.workerFile, this.cacheDir, () => undefined);
+        const stt = new SttService(this.dirs.workerFile, this.cacheDir, () => undefined, true);
         const results: { index: number; heard: string; ms: number }[] = [];
         let failed: string | undefined;
         try {
@@ -94,7 +94,7 @@ export class VoiceTest {
         scored.push({ ...scoreModel(model, results), ...(failed ? { failed } : {}) });
       }
       const report: VoiceTestReport = { at: Date.now(), clips: clips.length, models: rankModels(scored) };
-      fs.writeFileSync(path.join(this.dir, 'report.json'), JSON.stringify(report, null, 2));
+      if (save) fs.writeFileSync(path.join(this.dir, 'report.json'), JSON.stringify(report, null, 2));
       return report;
     } finally { this.running = false; }
   }
