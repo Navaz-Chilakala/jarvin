@@ -157,11 +157,11 @@ Chat model qwen3:8b; vision model qwen3-vl:4b-instruct; speech recognizer Qwen3-
 
 ### Still to do
 1. **User: restart Jarvin and try by voice** with the name hint in place. Report whether the red "weaker speech engine" warning appears and how requests are heard. (The three loader failures are diagnosed and fixed, and the comparison was repeated on the 20 clips: see the results table in section 1.)
-2. Stop the weaker recognizer taking over at all: retry loading the accurate engine at start-up (untested stopgap), then code signing (lasting fix).
+2. Stop the weaker recognizer taking over at all. **Stopgap built 13 Nov:** a failed Qwen load is tried a second time in a fresh worker before any fallback, and while on the fallback Qwen is tried again every 5 minutes. Unit-tested with a simulated failure, and the real Qwen voice check still passes. Whether it beats a real Windows block is unknown: the block did not occur during testing. Lasting fix: code signing.
 3. Voice steps 1 to 6 of VOICE-DESIGN.md, in order.
 4. ~~Rebuild the zip and push the late-night fixes.~~ Done 12 Nov 21:42.
 5. ~~Fix the misleading "running it" line in the voice log.~~ Done 12 Nov (night).
-6. Try PowerPoint and PDF creation through the real agent.
+6. ~~Try PowerPoint and PDF creation through the real agent.~~ Done 13 Nov with qwen3:8b in a clean profile. PDF correct first time (14 s). PowerPoint had a bug: the model put a stray `---` first and blank lines between slides, giving an empty slide plus one slide holding everything, reported as "1 slide". Fixed in `normalizeOfficeContent` (blank-line blocks become slides when no real separators are used; empty slides dropped; edits left untouched); re-run gave 3 correct slides (26 s), checked by reading the file.
 7. Battery reading checked (84%, charging, matches Windows). Left for the user: see the warning fire at 20% unplugged, and listen to a notice. The download, background command and meeting toasts were observed in an isolated Electron profile with a real Ollama pull.
 8. Pet mic button and pet poses checked in the real app (12 Nov, night). Left for the user, because they need a voice and ears: say "stop" during a real task, hear the Piper voice, the wider live checklist further down this file.
 9. Installer CI: the installer job builds the Setup .exe. The test-step fix is pushed and the `build` job is green (12 Nov, night). Left: try the installer on a PC without Smart App Control, and signing (needs a certificate).
@@ -175,6 +175,7 @@ Chat model qwen3:8b; vision model qwen3-vl:4b-instruct; speech recognizer Qwen3-
 - Phone controller.
 
 ### Day log
+- **13 Nov, later:** guide and an 18-page slide PDF (`docs/JARVIN-SLIDES.pdf`) pushed. Speech-engine retry stopgap built (to-do 2). PowerPoint and PDF tried through the real agent; PowerPoint slide-splitting bug found and fixed (to-do 6). 349 tests pass. The zip (12 Nov 21:42) does not contain these two changes.
 - **13 Nov:** feature work paused at the user's request. Wrote [JARVIN-TECHNICAL-GUIDE.md](JARVIN-TECHNICAL-GUIDE.md): an end-to-end technical guide (concepts from first principles, then architecture, request flow, agent loop, tools, voice, desktop control, safety, recovery, build and limits) with eight diagrams, all checked to render. Facts were read from the code; not committed yet. An 18-slide presentation of the same material was made as a private slide deck (https://claude.ai/artifact/WkmsNhYGsnHYT4Us3iQnnw); its layout was not checked slide by slide.
 - **9 Nov:** first live desktop runs with qwen3.5:4b; launch, typing, save, Chrome, Calculator; many small fixes (see "Live desktop findings" below).
 - **10 Nov:** auto-resume, installer diagnosis and zip build, prompt caching and warm order, speech and voice fallbacks, fewer-screenshot wording, bundled voice, routine schedule and step mode, renderer split, proactive notices, background mode, new plush pet and icon.

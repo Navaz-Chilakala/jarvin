@@ -21,6 +21,12 @@ const FALLBACK_MODELS = ['distil-whisper/distil-small.en', 'Xenova/whisper-base.
 export function pickFallback(usable: (model: string) => boolean): string | undefined { return FALLBACK_MODELS.find(usable); }
 /** True for "the native speech module would not load", as opposed to a bad recording or a missing model file. */
 export function isEngineLoadFailure(e: unknown): boolean { return /sherpa-onnx/i.test(String((e as any)?.message ?? e)); }
+/** Pause before the second attempt to load Qwen's module in a fresh worker. */
+const QWEN_SECOND_TRY_MS = 1500;
+/** How long Jarvin stays on the fallback recognizer before it tries Qwen again. */
+export const QWEN_RETRY_MS = 5 * 60_000;
+/** True when the fallback has been in use long enough that Qwen should be tried again. */
+export function qwenRetryDue(failed: boolean, failedAt: number, now: number): boolean { return failed && now - failedAt >= QWEN_RETRY_MS; }
 const MAX_HISTORY = 200;
 const MAX_FILES = 4000;
 
@@ -76,6 +82,8 @@ export class VoiceService {
 
   /** Set when the Qwen recognizer's native module could not load (Windows Smart App Control blocks the unsigned file on some PCs). */
   private qwenFailed = false;
+  /** When Qwen last failed to load. The block comes and goes, so Qwen is tried again after QWEN_RETRY_MS. */
+  private qwenFailedAt = 0;
 
   /** The recognizer in use: the chosen one, or the best cached Whisper-family model once Qwen has failed to load. */
   private modelId(): string {
@@ -84,13 +92,26 @@ export class VoiceService {
     return pickFallback((m) => engineInstalled(this.dirs.appRoot, m) && modelCached(this.cacheDir, m)) ?? chosen;
   }
 
-  /** Runs a speech call; if Qwen's module cannot load, switches to the fallback recognizer for this session and retries once. */
+  /**
+   * Runs a speech call. If Qwen's module cannot load, it is tried once more in a fresh worker (Windows blocks the file on
+   * some attempts and not others); only then does Jarvin switch to the weaker fallback recognizer. While on the fallback,
+   * Qwen is tried again every few minutes, so one bad start does not cost the whole session its accuracy.
+   */
   private async withFallback<T>(run: (model: string) => Promise<T>): Promise<T> {
+    if (qwenRetryDue(this.qwenFailed, this.qwenFailedAt, Date.now())) this.qwenFailed = false;
     const model = this.modelId();
     try { return await run(model); }
     catch (e: any) {
       if (model !== QWEN_ASR_MODEL || !isEngineLoadFailure(e)) throw e;
+      try {
+        await this.stt.dispose().catch(() => undefined);
+        await new Promise((resolve) => setTimeout(resolve, QWEN_SECOND_TRY_MS));
+        return await run(model);
+      } catch (again: any) {
+        if (!isEngineLoadFailure(again)) throw again;
+      }
       this.qwenFailed = true;
+      this.qwenFailedAt = Date.now();
       const next = this.modelId();
       if (next === model) { this.qwenFailed = false; throw e; }
       return run(next);

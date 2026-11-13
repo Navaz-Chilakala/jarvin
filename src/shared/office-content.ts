@@ -25,8 +25,15 @@ export function normalizeOfficeContent(ext: string, raw: string): { content: str
     return { content, shape: `${table.length} row${table.length === 1 ? '' : 's'} x ${columns} column${columns === 1 ? '' : 's'}` };
   }
   if (ext === '.pptx') {
-    const slides = content.split(/^---\s*$/m).filter((s) => s.trim()).length;
-    return { content, shape: `${slides} slide${slides === 1 ? '' : 's'}` };
+    // Slides are separated by a line of ---. Models also put one stray --- at the start or end and then separate the
+    // slides with blank lines; unfixed that gave an empty first slide and every slide's text on the second.
+    let slides = content.split(/^---\s*$/m).map((s) => s.trim()).filter(Boolean);
+    if (slides.length === 1) {
+      const blocks = slides[0].split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+      if (blocks.length > 1) slides = blocks;
+    }
+    content = slides.join('\n---\n');
+    return { content, shape: `${slides.length} slide${slides.length === 1 ? '' : 's'}` };
   }
   const filled = lines.filter((l) => l.trim()).length;
   return { content, shape: `${filled} line${filled === 1 ? '' : 's'} of text` };

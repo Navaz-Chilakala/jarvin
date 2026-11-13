@@ -106,7 +106,11 @@ test('acceleratorFromKey builds Electron accelerators', () => {
 });
 
 test('when the Qwen speech module cannot load, the best cached Whisper-family recognizer takes over', async () => {
-  const { pickFallback, isEngineLoadFailure } = await import('../src/main/voice');
+  const { pickFallback, isEngineLoadFailure, qwenRetryDue, QWEN_RETRY_MS } = await import('../src/main/voice');
+  // The fallback is left again after a few minutes, never before, and never when Qwen has not failed.
+  assert.equal(qwenRetryDue(true, 1000, 1000 + QWEN_RETRY_MS - 1), false);
+  assert.equal(qwenRetryDue(true, 1000, 1000 + QWEN_RETRY_MS), true);
+  assert.equal(qwenRetryDue(false, 0, 10 * QWEN_RETRY_MS), false);
   assert.equal(isEngineLoadFailure(new Error('Could not find sherpa-onnx-node. Tried\n ../build/Release/sherpa-onnx.node')), true);
   assert.equal(isEngineLoadFailure(new Error('Transcription timed out.')), false);
   assert.equal(pickFallback(() => true), 'distil-whisper/distil-small.en');

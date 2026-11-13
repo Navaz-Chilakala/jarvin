@@ -38,3 +38,24 @@ test('high microphone sensitivity reaches transcription for speech rejected by t
   assert.equal((await voice.process(faint(), { fast: true })).silent, true);
   assert.equal(calls, 1);
 });
+
+test('a blocked Qwen speech module is tried a second time in a fresh worker before any fallback', async () => {
+  const settings = { workspace: '', voice: { ...voiceDefaults, size: 'qwen3-asr', keepHistory: false } } as Settings;
+  const voice = new VoiceService(() => settings, { appRoot: '', data: '', workerFile: '' }, () => {});
+  let disposed = 0;
+  (voice as any).stt = { dispose: async () => { disposed++; } };
+  const models: string[] = [];
+  const result = await (voice as any).withFallback(async (model: string) => {
+    models.push(model);
+    if (models.length === 1) throw new Error('Could not find sherpa-onnx-node. Tried ../build/Release/sherpa-onnx.node');
+    return 'heard';
+  });
+  assert.equal(result, 'heard');
+  assert.equal(models.length, 2);
+  assert.equal(models[0], models[1], 'the second attempt uses the same accurate recognizer');
+  assert.match(models[0], /qwen3-asr/);
+  assert.equal(disposed, 1, 'the worker that failed is replaced');
+  assert.equal(voice.fallbackNote(), undefined, 'no weaker-engine warning when the second attempt works');
+  // An error that is not a module-load failure is passed on untouched, with no second attempt.
+  await assert.rejects((voice as any).withFallback(async () => { throw new Error('Transcription timed out.'); }), /timed out/);
+});

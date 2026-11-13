@@ -17,3 +17,15 @@ test('documents and slides report their size and unescape line breaks', () => {
   assert.equal(normalizeOfficeContent('.docx', 'A path C:\\new\\table stays as typed\nsecond line').content, 'A path C:\\new\\table stays as typed\nsecond line');
   assert.equal(normalizeOfficeContent('.pptx', 'Title\nbody\n---\nSecond\nmore').shape, '2 slides');
 });
+
+test('PowerPoint content becomes one slide per block, whatever separator the model used', () => {
+  // What qwen3:8b really sent: a stray --- first, then blank lines between slides.
+  const stray = normalizeOfficeContent('.pptx', '---\nGoa Trip\nThree days in December\n\nBudget\nTotal 25000 rupees\n\nPacking\nSunscreen and Camera');
+  assert.equal(stray.shape, '3 slides');
+  assert.equal(stray.content, 'Goa Trip\nThree days in December\n---\nBudget\nTotal 25000 rupees\n---\nPacking\nSunscreen and Camera');
+  // Proper separators are kept, and a slide may then hold a blank line.
+  const proper = normalizeOfficeContent('.pptx', 'Title\nLine\n---\nSecond\n\nMore\n---\n');
+  assert.equal(proper.shape, '2 slides');
+  assert.equal(proper.content, 'Title\nLine\n---\nSecond\n\nMore');
+  assert.equal(normalizeOfficeContent('.pptx', 'Only slide\nOne line').shape, '1 slide');
+});

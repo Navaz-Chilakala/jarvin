@@ -28,7 +28,8 @@ export async function writeOffice(ctx: ToolCtx, rel: string, data: OfficeInput, 
   if (edit && ext === '.xlsx' && !data.cell) throw Error('Give the first cell to update.');
   if (edit && fs.statSync(file).size > 20 * 1024 * 1024) throw Error('Editing is limited to files up to 20 MB.');
   const tidy = normalizeOfficeContent(ext, data.content);
-  data = { ...data, content: tidy.content };
+  // Slide splitting is for new decks only: when editing, the content is replacement text and must stay as given.
+  data = { ...data, content: edit && ext === '.pptx' ? data.content : tidy.content };
   const original = edit ? fs.readFileSync(file) : undefined;
   ctx.signal.throwIfAborted();
   fs.mkdirSync(path.dirname(file), { recursive: true });
