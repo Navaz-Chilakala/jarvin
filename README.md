@@ -8,8 +8,8 @@ For a current, evidence-based list of what is built and what remains, see [Jarvi
 
 ![Jarvin after opening Calculator and working out 12 times 12](promo/linkedin-3-task-done.png)
 
-- **Videos:** [demo, landscape](promo/jarvin-linkedin-sound.mp4) · [demo, vertical](promo/jarvin-whatsapp-sound.mp4) · [the pet](promo/jarvin-pet-linkedin-sound.mp4)
-- **How it works:** [technical guide](docs/JARVIN-TECHNICAL-GUIDE.md) (ideas first, then the architecture, with diagrams) · [slides, PDF](docs/JARVIN-SLIDES.pdf)
+- **Videos:** [demo, landscape](promo/jarvin-linkedin-sound.mp4) Â· [demo, vertical](promo/jarvin-whatsapp-sound.mp4) Â· [the pet](promo/jarvin-pet-linkedin-sound.mp4)
+- **How it works:** [technical guide](docs/JARVIN-TECHNICAL-GUIDE.md) (ideas first, then the architecture, with diagrams) Â· [slides online](https://claude.ai/artifact/WkmsNhYGsnHYT4Us3iQnnw) ([PDF](docs/JARVIN-SLIDES.pdf))
 - **Status:** [implementation tracker](docs/JARVIS-IMPLEMENTATION.md) (what is tested, what is not, what is next)
 
 What it does, in short:
@@ -27,7 +27,8 @@ It is a work in progress. The installer is unsigned, voice has been measured mos
 ## Run
 
 ```bash
-ollama pull qwen3.5:4b       # tested local chat/tool model on this Windows laptop
+ollama pull qwen3:8b              # chat and tool calling (the model used on the reference laptop)
+ollama pull qwen3-vl:4b-instruct  # local vision, for looking at the screen
 npm install
 npm start
 ```
@@ -38,26 +39,26 @@ Select **Float**, minimize, or close the main window to keep Jarvin running as a
 
 ### Your local setup and research
 
-For the RTX 5050 with 8 GB of VRAM and 24 GB of system RAM, start with the installed `qwen3.5:4b` in the model picker. It supports tool calls and vision according to the local Ollama server. Model memory also includes context and other GPU workloads, so actual speed and fit depend on the running workload; lower the context size in Settings if memory is tight. Models marked as cloud or configured with a remote host are not local, even if they appear in Ollama's list.
+The reference laptop has an RTX 5050 with 8 GB of VRAM and 24 GB of system RAM. It runs `qwen3:8b` for chat and tool calling and `qwen3-vl:4b-instruct` for vision. `qwen3:8b` follows instructions more reliably but cannot see, so screen tasks swap two models and take 15 to 18 seconds per look. `qwen3.5:4b` can do both jobs in 2 to 3 seconds per look, and was less reliable in testing. Measurements are in the [technical guide](docs/JARVIN-TECHNICAL-GUIDE.md).
 
-Select `qwen3.5:4b` and keep **Offline** disabled for internet access. Document and code tools are scoped to the current folder; open the folder containing your files when needed. Try:
+Pick the chat model in the model picker and keep **Offline** disabled for internet access. Document and code tools are scoped to the current folder; open the folder containing your files when needed. Try:
 
-- “Research the latest Python documentation for asyncio and include source links.”
-- “Read and summarize the PDF in this folder.”
-- “Open https://www.python.org/ in my browser.”
-- “What is visible on my screen?”
+- â€œResearch the latest Python documentation for asyncio and include source links.â€
+- â€œRead and summarize the PDF in this folder.â€
+- â€œOpen https://www.python.org/ in my browser.â€
+- â€œWhat is visible on my screen?â€
 
 Web searches send your query to DuckDuckGo, and fetching pages contacts those websites. `open_website` opens your default browser after the applicable action approval; it does not prove that a page finished loading. The separate `browser_open` tool is a hidden automation browser and does not control your existing browser session. Search results, pages, and documents are untrusted; check cited sources and keep command approvals enabled. PDF and DOCX reading is limited to supported text extraction, so scanned files may need OCR. Internet search can fail or be rate-limited.
 
-To share text from the page already open in Chrome or Edge, open **More tools → Share browser page**. The dialog shows how to load the included unpacked extension once. Open the desired browser tab, click the extension, and paste the one-time code from Jarvin. Review the extracted text and select **Attach to next message**, then type your question and send. The code expires after two minutes and is consumed once. The extension does not control the page or access other tabs. It attempts to skip form fields, editable areas and hidden text, but page text and URLs may still contain private information. A remote model receives anything you send it. Click the page attachment pill to remove it before sending.
+To share text from the page already open in Chrome or Edge, open **More tools â†’ Share browser page**. The dialog shows how to load the included unpacked extension once. Open the desired browser tab, click the extension, and paste the one-time code from Jarvin. Review the extracted text and select **Attach to next message**, then type your question and send. The code expires after two minutes and is consumed once. The extension does not control the page or access other tabs. It attempts to skip form fields, editable areas and hidden text, but page text and URLs may still contain private information. A remote model receives anything you send it. Click the page attachment pill to remove it before sending.
 
-For screen tasks, select **Local vision model → qwen3-vl:4b-instruct**, or leave it blank to choose an installed local vision model independently of chat. Jarvin moves its main window aside before observation/control. It can list displays, observe a chosen monitor, ground a click or field in that monitor's physical screen coordinates, and check the foreground window and stale visual targets before input. Ask it to switch to the next or previous tab or window to send the shortcut and inspect the new screen. Its floating sampler keeps recent frames in memory; vision runs on demand, not continuously on every frame. Keep the chat model local too if screen descriptions must stay on this PC.
+For screen tasks, select **Local vision model â†’ qwen3-vl:4b-instruct**, or leave it blank to choose an installed local vision model independently of chat. Jarvin moves its main window aside before observation/control. It can list displays, observe a chosen monitor, ground a click or field in that monitor's physical screen coordinates, and check the foreground window and stale visual targets before input. Ask it to switch to the next or previous tab or window to send the shortcut and inspect the new screen. Its floating sampler keeps recent frames in memory; vision runs on demand, not continuously on every frame. Keep the chat model local too if screen descriptions must stay on this PC.
 
-Open **More tools → Memories** to inspect, edit, or delete saved memories. Saving and deleting check whether the memory changed after it was opened; if it did, reopen it before trying again. This dashboard manages saved memory files, not chat history or audit logs.
+Open **More tools â†’ Memories** to inspect, edit, or delete saved memories. Saving and deleting check whether the memory changed after it was opened; if it did, reopen it before trying again. This dashboard manages saved memory files, not chat history or audit logs.
 
 If a run is interrupted by a crash or pauses at its step limit, open **Tasks** to review the request and recorded tool activity. Review creates an editable draft; it never restarts work by itself. Check existing files and external actions before sending it, and reattach any images. Recovery records are stored locally, separately from chat history; the Tasks panel can remove individual recovery records or clear finished records for the current folder. Recovery does not restore the complete model/tool context or guarantee that earlier actions were undone.
 
-Voice: the microphone is off when Jarvin starts. Switch it on from the mic switch in the chat box or the round button on the pet. With it on, Jarvin acts only on speech that starts with "Hey Jarvin" (or "Jarvin" / "Hey Jarvis"); everything else is ignored. "Stop" works at any time without the name, and while a task is running only a stop word interrupts it. A trained speech detector (Silero) separates speech from fans, typing and music, and the mic switch names the recognizer in use, for example "Listening · Qwen3-ASR". Push-to-talk needs no name: hold the microphone button, Ctrl+Shift+M, or the pet's mic button, speak, and release. Ctrl+Alt+J dictates into any app. The design and its measurements are in [VOICE-DESIGN.md](docs/VOICE-DESIGN.md) and the [technical guide](docs/JARVIN-TECHNICAL-GUIDE.md).
+Voice: the microphone is off when Jarvin starts. Switch it on from the mic switch in the chat box or the round button on the pet. With it on, Jarvin acts only on speech that starts with "Hey Jarvin" (or "Jarvin" / "Hey Jarvis"); everything else is ignored. "Stop" works at any time without the name, and while a task is running only a stop word interrupts it. A trained speech detector (Silero) separates speech from fans, typing and music, and the mic switch names the recognizer in use, for example "Listening Â· Qwen3-ASR". Push-to-talk needs no name: hold the microphone button, Ctrl+Shift+M, or the pet's mic button, speak, and release. Ctrl+Alt+J dictates into any app. The design and its measurements are in [VOICE-DESIGN.md](docs/VOICE-DESIGN.md) and the [technical guide](docs/JARVIN-TECHNICAL-GUIDE.md).
 
 Jarvin is still being tested as a desktop companion. Physical microphone accuracy, speaker echo cancellation, and arbitrary desktop actions are not guaranteed by the synthetic checks. It runs in your Windows user session, not as a Windows service.
 
@@ -73,14 +74,14 @@ Jarvin is still being tested as a desktop companion. Physical microphone accurac
 | `mcp__<server>__<tool>` | Any MCP server tool | asks |
 
 - File tools are confined to the open folder.
-- Approval modes (top bar): *Ask* · *Auto-apply edits, ask for commands* · *Full auto*. Every prompt also offers "Always allow this tool" for the session.
+- Approval modes (top bar): *Ask* Â· *Auto-apply edits, ask for commands* Â· *Full auto*. Every prompt also offers "Always allow this tool" for the session.
 | `subagent_inspect`, `subagent_edit`, `worktree_*`, `task_list` | Context-preserving subagent work and worktree review flow | varies |
 - The active editor file is sent with each message as context.
 
 ## Interface
 
 Tabbed editor with syntax highlighting and live updates when the agent edits a file, resizable panels, inline tool activity with diffs and approvals, markdown (tables, code blocks with copy) in chat.
-Shortcuts: `Enter` send · `Shift+Enter` newline · `Esc` stop · `Ctrl+S` save · `Ctrl+B` sidebar · `Ctrl+L` focus chat.
+Shortcuts: `Enter` send Â· `Shift+Enter` newline Â· `Esc` stop Â· `Ctrl+S` save Â· `Ctrl+B` sidebar Â· `Ctrl+L` focus chat.
 
 ## MCP
 
@@ -101,7 +102,7 @@ Stdio servers start with the workspace as their working directory. Config is sto
 ## Layout
 
 ```
-src/main/agent.ts     agent loop: stream → tool calls → approve → run → repeat
+src/main/agent.ts     agent loop: stream â†’ tool calls â†’ approve â†’ run â†’ repeat
 src/main/ollama.ts    streaming /api/chat client
 src/main/tools.ts     built-in tools + workspace sandbox
 src/main/mcp.ts       MCP client manager (stdio + HTTP)
@@ -132,12 +133,12 @@ The core assistant, coding and companion paths exist, but real microphone accura
 
 ## Release notes (0.1.x)
 
-- Cross-platform CI runs typecheck, tests, and build on Windows, Linux, and macOS.
+- CI runs typecheck, tests and build on Windows (Jarvin is Windows-only), and can build the installer on request.
 - Worktree review flow for editing subagents: list, diff, keep/merge, discard.
 - Subagent run registry with cancellation and status UI.
 - Dependency-ordered subagent task graph tooling.
 - OpenAI/OpenRouter-compatible remote models can be listed and used when an API key is configured.
-- Voice: automatic listening without a wake phrase, local Qwen3-ASR/Moonshine options, transcription cleanup, spoken commands, interruption, and auto-send.
+- Voice: microphone switch, required "Hey Jarvin" wake phrase, trained speech detector (Silero), local Qwen3-ASR with fallback recognizers, junk-hearing filter, fast "stop", push-to-talk, spoken replies, and dictation into other apps.
 - Sidebar theme toggle and active-file preview for Markdown/HTML/text.
 
 ## Security and privacy notes
@@ -155,8 +156,8 @@ The core assistant, coding and companion paths exist, but real microphone accura
 
 ## Packaging and Device Guard
 
-On some Windows devices, the generated `release\Jarvin 0.1.0.exe` portable executable can be blocked by
-Device Guard. In that case, run the app directly from source:
+On Windows PCs with Smart App Control on, the unsigned installer and portable executable are blocked. `npm run dist:safe` then builds `release\Jarvin-<version>-win.zip`: unzip it anywhere and run `Jarvin.exe`. You can also run from source:
+
 
 ```powershell
 cd path\to\jarvin
@@ -164,4 +165,4 @@ npm install
 npm run start
 ```
 
-The current voice update is available through the source launcher and `release/win-unpacked/Jarvin.exe` after rebuilding the unpacked app. The installer rebuild failed on this Windows machine with `spawn UNKNOWN` during uninstaller creation, and the single-file portable rebuild was stopped after stalling. Old and incomplete release artifacts are marked `.old`, `.stale` or `.failed`. A fresh signed installer and clean-profile install/upgrade checks remain outstanding.
+GitHub Actions can build the Setup .exe (run the `installer` job by hand). It is unsigned and has not been installed on a clean PC yet. See [RELEASING.md](RELEASING.md).

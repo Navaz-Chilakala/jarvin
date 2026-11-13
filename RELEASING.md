@@ -1,13 +1,13 @@
 # Building and updating Jarvin
 
-Current local build note (10 November 2026): `release\Jarvin-0.1.0-win.zip` and `release\win-unpacked` are current. There is no Setup .exe: this PC cannot build one (see below). The zip was unzipped to a temp folder and started hidden with a separate profile and safe mode: the window loaded and the UI rendered (10 Nov). Voice, Ollama and a real task were not exercised from the zip.
+Current local build note (13 November 2026): `release\Jarvin-0.1.0-win.zip` is the working build on the development PC. There is no local Setup .exe: this PC cannot build one (see below). The zip is rebuilt after each batch of changes, unzipped to a temp folder and started; the [implementation tracker](docs/JARVIS-IMPLEMENTATION.md) records the time of the latest build and what it contains.
 
 ## If the installer build fails with `spawn UNKNOWN`
 
 Cause, confirmed on the target PC on 10 November 2026: Smart App Control is on. To create the uninstaller, electron-builder runs the freshly built, unsigned setup stub, and Smart App Control blocks it (Code Integrity event 3077 names `release\Jarvin-Setup-0.1.0.exe`). Defender exclusions do not help, and the finished unsigned installer could not be run on that PC either. Smart App Control cannot be turned back on once it is off, so leave it alone.
 
 - On a PC with Smart App Control on, `npm run dist:safe` now builds `release\Jarvin-<version>-win.zip` instead (confirmed). Unzip it anywhere and run `Jarvin.exe`. A zip install cannot update itself.
-- For a real Setup .exe, run the `installer` job of the CI workflow from the GitHub Actions tab (not yet run; the project is not on GitHub yet), or build on a PC without Smart App Control. A PC with Smart App Control will only run the installer once it is code-signed.
+- For a real Setup .exe, run the `installer` job of the CI workflow from the GitHub Actions tab of https://github.com/Navaz-Chilakala/jarvin (it built a 272 MB unsigned installer on 12 November 2026, kept as the `jarvin-installer` artifact; that installer has not been installed anywhere yet), or build on a PC without Smart App Control. A PC with Smart App Control will also refuse to run the unsigned installer.
 - `npm run dist:clean` removes `.old`, `.stale` and `.failed` leftovers and any blocked setup stub.
 
 ## Build the installer (on Windows)

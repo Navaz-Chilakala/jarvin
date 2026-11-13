@@ -1,16 +1,21 @@
 # Jarvin capabilities
 
-Snapshot: 9 November 2026. "Live-tested" means it passed on the real Windows PC with qwen3.5:4b. "Built" means the code and automated tests pass, but it has not been run live yet.
+Snapshot: 9 November 2026 for sections 2 to 7; sections 1, 8 and 9 were brought up to date on 13 November 2026. "Live-tested" means it passed on the real Windows PC. "Built" means the code and automated tests pass, but it has not been run live yet. "Checked with recordings" means the real app was given saved recordings of the user's voice as its microphone; nobody spoke into it live. The day-by-day record is the [implementation tracker](JARVIS-IMPLEMENTATION.md).
 
 ## 1. Talking to Jarvin
 | Capability | Status |
 |---|---|
 | Chat in the Assistant view and the Code view | Live-tested |
 | Floating pet: draggable, click to open, right-click menu (Open, Mute microphone, Pause screen observation, Open code, Review paused tasks, Pause task, Stop reply, Quit) | Live-tested |
-| Automatic listening with local speech recognition (Qwen3-ASR, optional Moonshine) | Live-tested |
-| Wake word "Jarvin": in automatic listening, only speech that starts with "Jarvin" runs (setting, on by default) | Built |
+| Microphone switch: off at start; switched on from the chat box or the pet. Nothing is recorded while it is off | Live-tested (the switch); listening itself checked with recordings |
+| Local speech recognition with Qwen3-ASR and a name hint; fallback recognizers if Windows blocks it, with a retry and an on-screen "(weaker)" label | Measured on the user's 20 recordings: 1 wrong word in 160 |
+| Trained speech detector (Silero): fans, typing and music are not treated as speech | Checked with recordings and generated noise; not in a real noisy room |
+| Wake phrase required: only speech that starts with "Hey Jarvin" (or "Jarvin" / "Hey Jarvis") runs. Saying only the name opens a 10-second window for the request | Checked with recordings (name heard 10 of 10) |
+| "Stop" without the name, at any time; while a task runs only a stop word interrupts it; an early check acts on "stop" before the sentence ends | Stop rule checked in the real app with generated speech; the early check is built but not seen firing in a real task |
+| Junk filter: made-up hearings ("thank you", impossible speech rates, repeated phrases) are dropped | Built |
+| Push-to-talk: hold the mic button, Ctrl+Shift+M or the pet's mic button; no name needed | Built |
 | Ignores its own voice picked up by the microphone | Built |
-| Spoken replies: natural local voice (Kokoro if installed, else Piper "joe"), otherwise a Windows voice | Built (Piper sounds robotic; Kokoro not yet heard) |
+| Spoken replies: natural local voice (Kokoro if installed, else the bundled Piper "joe"), otherwise a Windows voice | Built; audio starts in the real app; not judged by ear |
 | Voice commands (stop, send, new chat) and approving or denying by voice | Built |
 | Interrupts its own speech or a running reply when you speak | Built |
 | Dictate into any app (voice paste) | Built |
@@ -72,19 +77,21 @@ Safety guards: Jarvin cannot press Delete or Backspace or type for two minutes a
 Run commands and tests, apply patches, search and map a codebase (including semantic search), view problems, use Git (status, diff, log, branch, commit, checkout, stash), run sub-agents and verified changes in separate work trees. Status: built.
 
 ## 8. How it runs
-- Local-first: Ollama runs the chat model (qwen3.5:4b) and the vision model (qwen3-vl:4b-instruct). Jarvin starts Ollama if it is not running, and keeps your saved model when Ollama is down.
+- Local-first: Ollama runs the chat model (`qwen3:8b`, the user's choice since 12 November; `qwen3.5:4b` is the alternative) and the vision model (`qwen3-vl:4b-instruct`). Jarvin starts Ollama if it is not running, and keeps your saved model when Ollama is down. Cloud models through an OpenAI-compatible service are optional.
 - Tool list is trimmed per request: a plain desktop task now sends the model 28 tools (12.4k characters) instead of 48 (17.5k).
 - Permission modes (for example Full auto); destructive actions keep a fresh-consent rule; tools that run commands or MCP tools ask first.
 - Task traces are saved so a run can be reviewed.
 
 ## 9. Known limits
-- The 4B chat model sometimes announces an action and stops. Jarvin nudges it twice; a 7–8B model would stall less.
+- A small local chat model sometimes announces an action and stops, or reports the result it expected. Jarvin nudges it twice and tools report what they really observed.
+- Screen tasks are slow with `qwen3:8b`: 15 to 18 seconds per look on 8 GB of graphics memory, because the chat and vision models swap.
+- Voice has been measured on saved recordings and generated noise, not with a person speaking live in a real room.
 - If Jarvin is closed, a reminder pop-up comes from a Windows scheduled task about 90 seconds late (not tested live).
-- Wi-Fi, Bluetooth and Do Not Disturb switches are not built (they need administrator rights or Settings automation).
-- The natural voice files are not bundled in the installer; run `node scripts/install-natural-voice.cjs` after installing.
-- The installer (`npm run dist:safe`) has not been built or tested.
-- Not yet tested live: wake word, keyboard shortcuts beyond Ctrl+N/S, voice echo guard.
-- Automatic resume of a task after an app restart is not built. Phone control is out of scope.
+- Wi-Fi, Bluetooth and Do Not Disturb switches are not built (dropped by the user).
+- The Piper "joe" voice is bundled. The smoother Kokoro voice is optional: run `node scripts/install-kokoro-voice.cjs`.
+- On the development PC, Smart App Control blocks the unsigned installer, so `npm run dist:safe` builds a zip, which is rebuilt and started after each batch of changes. GitHub Actions builds an unsigned Setup .exe on request; it has not been installed on a clean PC.
+- Not yet tested live: most keyboard shortcuts beyond Ctrl+N/S, brightness, dark mode, lock screen.
+- Automatic resume after a crash or restart is built and was confirmed live on 11 November: the newest interrupted task is offered again once. Phone control is out of scope.
 
 ## Routines (built, not live-tested)
 - `routine` tool: list / save / run named multi-step routines (e.g. "work setup"); run returns the steps for Jarvin to carry out with its other tools. Stored in the existing routine store.

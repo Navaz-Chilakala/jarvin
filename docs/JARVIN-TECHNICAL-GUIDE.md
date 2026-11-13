@@ -1,6 +1,6 @@
 # Jarvin technical guide
 
-Written 13 November 2026 from the code as it stands on `main`.
+Written 13 November 2026 from the code as it stands on `main`, and updated the same evening after the voice changes.
 
 This guide explains Jarvin from the ground up. Part A explains the ideas Jarvin is built on, assuming no background in AI assistants. Part B walks through the real system: every major part, how a request flows through it, and why it was designed that way. Part C covers building, testing and the known limits.
 
@@ -244,7 +244,7 @@ jarvin/
     main/        Main process. About 12,000 lines.
     renderer/    The windows. About 7,300 lines.
     shared/      Pure logic used by both, with no Electron or Node dependencies. About 3,400 lines.
-  tests/         Unit tests (347), run with Node's built-in test runner.
+  tests/         Unit tests (356), run with Node's built-in test runner.
   scripts/       End-to-end checks, live checks, benchmarks, build helpers.
   assets/        Icon, pet source renders, bundled Piper voice.
   docs/          This guide, the tracker, design notes.
@@ -532,7 +532,9 @@ flowchart TD
     Busy -->|yes| Skip([Skipped or queued])
     Busy -->|no| STT["Recogniser<br/>(Qwen3-ASR)"]
     STT --> Clean[Clean the transcript]
-    Clean --> Stop{"Just a stop word?"}
+    Clean --> Junk{"Looks made up?"}
+    Junk -->|yes| Drop([Dropped])
+    Junk -->|no| Stop{"Just a stop word?"}
     Stop -->|yes| DoStop([Stop the task or the voice])
     Stop -->|no| Name{"Starts with 'Hey Jarvin'?"}
     Name -->|"no"| Ign([Ignored])
@@ -556,6 +558,12 @@ flowchart TD
 
 **While a task is running** (the agent has used at least one tool), every sentence except a stop word is ignored and logged as such. Here "wait", "pause" and "enough" count as stop words too. A half-heard phrase cannot derail a task in progress. While Jarvin is only talking, a new request spoken over it replaces the reply.
 
+**The junk filter.** The recogniser gives no confidence score, so automatic listening drops transcripts that show the signs of words made up from noise: a stock phrase such as "thank you" or "bye", more than seven words a second, or the same phrase four times in a row (`implausibleHearing` in `src/shared/voice.ts`). A deliberate push-to-talk recording is never filtered.
+
+**The fast stop.** A spoken "stop" used to wait for the end of the utterance and a full transcription, about 3.7 seconds from the first word. While Jarvin is working or speaking, two things now shorten that. An utterance ends after 350 ms of quiet in place of 650 ms. And every 350 ms the unfinished utterance is handed to a small quick recogniser (Moonshine, in its own process); if a short utterance already ends in "stop" or "cancel", the task is stopped at once. On the user's own "Hey Jarvin, stop." recording the quick model answers after 1.2 seconds of speech, in about 350 ms. It mangles the name ("Hayds, Avin, stop."), which is why the early check looks at how the utterance ends and not at the name.
+
+**The recogniser on screen.** The mic switch always names the engine in use: "Listening · Qwen3-ASR", or "… (weaker)" when Windows has forced the fallback.
+
 **Echo.** A transcript that matches what Jarvin itself said in the last 15 seconds is dropped and logged as "my own voice". The wake word is the second line of defence: Jarvin's replies do not start with its own name.
 
 ### Why Qwen3-ASR, measured
@@ -574,7 +582,24 @@ This is the evidence behind the choice, and it also explains the user's complain
 
 ### The fallback and its warning
 
-`VoiceService` in `src/main/voice.ts` handles that case. If the Qwen engine cannot load, it switches for the session to the best cached Whisper-family model and retries. The voice log and a red warning now say that a weaker recogniser is in use. The block itself comes from Windows Smart App Control refusing an unsigned library; section 29 covers it.
+`VoiceService` in `src/main/voice.ts` handles that case. If the Qwen engine cannot load, it is tried a second time in a fresh process, because the block comes and goes. Only then does Jarvin switch to the best cached Whisper-family model, and it tries Qwen again every five minutes so one bad start does not cost the whole session. The voice log and a red warning now say that a weaker recogniser is in use. The block itself comes from Windows Smart App Control refusing an unsigned library; section 29 covers it.
+
+### Push-to-talk
+
+Hold the microphone button in the chat box, Ctrl+Shift+M, or the round button on the pet; speak; release. The recording is sent exactly as spoken, with no wake phrase, no speech detector and no junk filter. A short press still works as a switch (press to start, press to stop). It is the way in that cannot mis-trigger, for noisy rooms or when the name is not being recognised.
+
+### The wake-word model that was tried
+
+The design called for a small dedicated model that listens only for the name. openWakeWord's ready-made "hey jarvis" model was measured on the user's recordings (`scripts/wake-voice-check.ts`) and set aside:
+
+| Test | Result |
+|---|---|
+| The user's 10 "Hey Jarvin" sentences, normal threshold 0.5 | fired on 0 of 10 (scores 0.02 to 0.46) |
+| The user's 10 sentences without the name | fired on 0 of 10 (scores 0.00) |
+| A computer voice saying "Hey Jarvin" | 0.99 |
+| Loud fan noise | 0.15 |
+
+The computer-voice result shows the model was wired correctly; it simply does not respond well to this speaker. Its ready-made models are also licensed for non-commercial use only. So the name is still found by transcribing and matching, which with Qwen3-ASR and the name hint is 10 of 10 on the same recordings.
 
 ### Dictation
 
@@ -672,7 +697,7 @@ flowchart TD
 
 - **Reading.** PDF, Word, Excel, PowerPoint and CSV are parsed in a separate worker process, so a malformed file cannot freeze the app. Scanned pages go through OCR (Tesseract).
 - **Creating.** `create_document` writes Word, Excel, PowerPoint and PDF files directly, without opening Office.
-- **Normalising model output.** Small models send tables in inconsistent shapes. `normalizeOfficeContent` (`src/shared/office-content.ts`) accepts tabs, commas or pipes as separators, and the tool reports the shape it wrote ("3 rows × 4 columns"), so a table that landed in one cell is visible to the model and the user.
+- **Normalising model output.** Small models send tables in inconsistent shapes. `normalizeOfficeContent` (`src/shared/office-content.ts`) accepts tabs, commas or pipes as separators, and the tool reports the shape it wrote ("3 rows × 4 columns"), so a table that landed in one cell is visible to the model and the user. For PowerPoint, slides are separated by a line of `---`; when a model separates them with blank lines instead, each block still becomes its own slide, and stray separators no longer produce an empty slide.
 
 ## 24. The coding side
 
@@ -706,7 +731,7 @@ The Code view turns the same agent into a coding assistant.
 | Speaking | Waving | Quick bounce |
 | Needs approval | (current picture) | Hop |
 
-It can be dragged, clicked to open Jarvin, and right-clicked for a menu (open, mute microphone, pause screen observation, pause task, stop reply, quit). Its round button switches the microphone.
+It can be dragged, clicked to open Jarvin, and right-clicked for a menu (open, mute microphone, pause screen observation, pause task, stop reply, quit). A click on its round button switches the microphone; holding the button is push-to-talk.
 
 The main window pushes a small state object to the pet (`working`, `mic`, `speaking`, `hearing`, `level`) and the pet's page turns that into pictures and animations with CSS.
 
@@ -742,7 +767,7 @@ The chat and vision models themselves are stored by Ollama, not by Jarvin.
 | `npm run build` | Bundles `src/` into `dist/` with esbuild (well under five seconds). |
 | `npm start` | Builds and starts the app. |
 | `npm run typecheck` | TypeScript check, no output files. |
-| `npm test` | 347 unit tests with Node's test runner. |
+| `npm test` | 356 unit tests with Node's test runner. |
 | `npm run dist:safe` | Builds the installer, or falls back to a zip when Windows blocks the installer build. |
 
 **Three layers of testing.**
@@ -768,6 +793,9 @@ The distinction matters and the tracker keeps to it: "built" means code and unit
 | Microphone switch plus required wake word | Always-on listening acted on background sound. Determinism mattered more than convenience. |
 | Only "stop" interrupts a running task | A misheard phrase must not derail work in progress. |
 | Choose the recogniser by measurement on the user's voice | Published accuracy figures did not predict results for this speaker. |
+| No dedicated wake-word model | The ready-made one fired on 0 of 10 of the user's "Hey Jarvin" recordings, and its licence is non-commercial. |
+| Push-to-talk beside the wake phrase | A way in that cannot mis-trigger and does not depend on the name being heard. |
+| A filter on implausible transcripts | The recogniser reports no confidence, and recognisers invent words from noise. |
 | Background mode in place of a Windows service | A service cannot show windows or use the microphone in the user's session. |
 | Journal records interruption but never replays | Replaying a half-finished action could cause harm. |
 | Permission logic in plain code | Safety must not depend on the model behaving. |
@@ -777,7 +805,7 @@ The distinction matters and the tracker keeps to it: "built" means code and unit
 
 - **Smart App Control and unsigned files.** Windows 11's Smart App Control blocks unsigned executables and libraries, and not consistently. It prevents building or running the installer on the development PC, and on some launches blocks the library behind Qwen3-ASR and Kokoro, which triggers the weaker speech fallback. The lasting fix is a code-signing certificate. Smart App Control cannot be switched back on once turned off, so turning it off is not treated as a fix.
 - **Screen tasks are slow with `qwen3:8b`**: 15 to 18 s per screen step on 8 GB of VRAM, because chat and vision models swap. `qwen3.5:4b` alone does a step in 2 to 3 s but was less reliable.
-- **Voice reliability is half built.** The trained speech detector is in, but it was measured on generated noises and saved recordings, not yet on real room noise. The dedicated wake-word model, the confidence filter and push-to-talk from VOICE-DESIGN.md are not built.
+- **Voice has been measured on recordings, not on a live voice.** The speech detector, the junk filter, the fast stop and push-to-talk are built and unit-tested, and recorded requests played into the app are heard correctly. A person speaking into the real microphone in a real room, with a real fan or television, has not been tested. The early stop has not been seen firing during a real task. The 30-minute room test from VOICE-DESIGN.md is still to do.
 - **Small-model mistakes.** A local 8B model sometimes reports an expected result instead of the observed one, or needs a retry. Many prompt rules and tool results (`window_shows`, shape reports) exist to counter this, but it cannot be removed entirely.
 - **Windows only.** UI Automation, `SendInput` and the PowerShell helpers have no equivalent wired up for other systems.
 - **Not all features are live-tested.** The tracker lists which were only checked by unit tests.

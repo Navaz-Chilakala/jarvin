@@ -1,6 +1,8 @@
 # Jarvin product status
 
-Snapshot: 6 November 2026. This is the current Electron/TypeScript product in `jarvin/jarvin`. The original Project JARVIS brief supplied in chat is a target, not a claim that every requested capability is complete. The older [PRD audit](../PRD-audit.md) predates much of the present code; use this page for current status.
+> **This page is a snapshot from 6 November 2026 and is partly out of date.** Since then the chat model changed to `qwen3:8b`, listening became an explicit microphone switch with a required "Hey Jarvin" wake phrase, and a speech detector, push-to-talk, auto-resume, background mode and document creation were added. For the current state read the [implementation tracker](JARVIS-IMPLEMENTATION.md), the [capabilities list](JARVIN-CAPABILITIES.md) and the [technical guide](JARVIN-TECHNICAL-GUIDE.md).
+
+Snapshot: 6 November 2026. This is the current Electron/TypeScript product in `jarvin/jarvin`. The original Project JARVIS brief supplied in chat is a target, not a claim that every requested capability is complete.
 
 ## What Jarvin is today
 
@@ -10,7 +12,7 @@ The user's current machine has 24 GB RAM, an RTX 5050 laptop GPU with 8 GB VRAM,
 
 ## User decisions carried into the product
 
-- Speak normally whenever Jarvin is running; no wake phrase or “hands-free” switch is required. Mute is explicit. (9 Nov: after music was heard as a task, the user agreed to a wake word, "Jarvin", as a setting in Settings → Voice, on by default.)
+- Listening (changed on 11 and 12 November at the user's request): the microphone is off until switched on, and with it on only speech that starts with "Hey Jarvin" is acted on; "stop" works without the name. The earlier decision, "speak normally with no wake phrase", was dropped after background sound was heard as requests.
 - The pet should remain visible and draggable while the main app is minimized; clicking it returns to the app.
 - Screen tasks should use the visible screen and actual mouse and keyboard. Chrome should visibly open and navigate when requested.
 - Routine desktop actions can run without repeated approvals in the selected automatic mode; destructive actions still have a fresh-consent rule.
@@ -51,7 +53,7 @@ The user's current machine has 24 GB RAM, an RTX 5050 laptop GPU with 8 GB VRAM,
 | Phone/mobile control | Deferred by the user. |
 | Continuous interpreted video of the whole desktop | Not implemented; recent image buffer and on-demand inference are present. |
 | Hardware-tested, natural real-time duplex conversation | Not established; generated-audio interruption works. |
-| Configurable wake-word detector | Deferred because the user requested normal speech without a wake phrase. |
+| Dedicated wake-word model | Measured on 13 November and set aside: openWakeWord's "hey jarvis" fired on 0 of 10 of the user's "Hey Jarvin" recordings, and its licence is non-commercial. The wake phrase is matched in the transcript instead. |
 | Per-window/app “do not observe or control” exclusions | Initial rules for built-in desktop tools are present. External MCP/shell paths, live acceptance and security review remain. |
 | Full OS sandbox and independent security review | Not implemented. Workspace boundaries and approval policy are present. |
 | A2A, A2UI protocol, AP2, UCP, agent gateway/registry/identity, knowledge graph | Not implemented. MCP, local sessions, traces, code search and basic skills/hooks are the current foundation. |

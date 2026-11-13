@@ -2,6 +2,24 @@
 
 12 November 2026. Nothing in this note is built yet. It answers one request: speech must be understood correctly, noise must be ignored, Jarvin must not stop for stray sound, the user must be able to stop it, and the user's voice must win when Jarvin is talking.
 
+## Status on 13 November 2026
+
+This note was written on 12 November as a plan. What has happened since:
+
+| Step | Planned | State |
+|---|---|---|
+| 0 | Voice test on the user's voice | **Built and run.** Qwen3-ASR with a name hint: 1 wrong word in 160, name heard 10 of 10. |
+| 1 | Show the active recognizer; no silent switching | **Built.** The mic switch names the engine ("Listening · Qwen3-ASR", or "(weaker)" on the fallback). A failed load is retried once, and again every 5 minutes. |
+| 2 | Silero speech detector | **Built.** On the user's 20 recordings it caught 20 of 20; on five generated noises it passed 0, where the loudness check passed 5. |
+| 3 | Dedicated wake-word model and fast "stop" | **Fast stop built** (shorter end-of-speech while busy, plus an early look by a quick recognizer). **Wake-word model measured and set aside:** openWakeWord's "hey jarvis" fired on 0 of 10 of the user's "Hey Jarvin" recordings at its normal threshold, and its models are non-commercial. The open question at the end of this note is answered: no, not for this speaker. |
+| 4 | Confidence and noise-phrase filter | **Built as a plausibility filter.** The recognizer reports no confidence, so stock noise phrases, impossible speech rates and repeated phrases are dropped. |
+| 5 | Push-to-talk | **Built.** Hold the mic button, Ctrl+Shift+M or the pet's mic button. |
+| 6 | Re-run the voice test and a 30-minute room test | **Not done.** Needs the user in the room. |
+
+Nothing above has been tried with a person speaking live; the measurements used saved recordings and generated noise. Details and numbers are in [JARVIS-IMPLEMENTATION.md](JARVIS-IMPLEMENTATION.md) and section 18 of [JARVIN-TECHNICAL-GUIDE.md](JARVIN-TECHNICAL-GUIDE.md).
+
+The rest of this note is the original plan, kept as written.
+
 ## What is wrong today
 
 | Problem the user sees | Cause found |
