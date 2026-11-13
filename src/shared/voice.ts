@@ -10,6 +10,8 @@ export const QWEN_ASR_DIR = 'sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25';
 export interface VoiceSettings {
   enabled: boolean;
   sensitivity: 'low' | 'balanced' | 'high';
+  /** How automatic listening tells speech from other sound. 'neural' (default) is the trained Silero detector; 'loudness' is the older level check, also used whenever the detector cannot run. */
+  detector?: 'neural' | 'loudness';
   size: WhisperSize;
   /** 'english' uses the faster English-only models; anything else uses the multilingual ones. */
   language: string;

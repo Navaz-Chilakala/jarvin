@@ -19,6 +19,7 @@ await Promise.all([
     outfile: 'dist/stt-worker.js',
     external: ['electron', '@huggingface/transformers', 'onnxruntime-node', 'onnxruntime-web', 'sharp', 'sherpa-onnx-node'],
   }),
+  build({ ...node, entryPoints: ['src/main/vad-worker.ts'], outfile: 'dist/vad-worker.js', external: ['onnxruntime-node'] }),
   build({ ...node, entryPoints: ['src/main/piper-worker.ts'], outfile: 'dist/piper-worker.js', external: ['onnxruntime-node', 'phonemizer', 'sherpa-onnx-node'] }),
   build({
     ...node,

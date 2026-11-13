@@ -255,6 +255,8 @@ export interface JarvinApi {
   voiceStatus(): Promise<VoiceStatus>;
   voiceDownload(): Promise<{ ok: boolean; error?: string }>;
   voiceWarm(): Promise<{ ok: boolean; error?: string; note?: string }>;
+  /** Probability (0 to 1) that this chunk is speech, from the trained detector; null when it is unavailable. */
+  voiceVad(audio: Float32Array, reset?: boolean): Promise<number | null>;
   neuralVoiceStatus(): Promise<{ available: boolean }>;
   neuralVoiceWarm(): Promise<{ ok: boolean; error?: string }>;
   neuralVoiceSynthesize(text: string, rate?: number): Promise<{ pcm: Float32Array; sampleRate: number } | { error: string }>;

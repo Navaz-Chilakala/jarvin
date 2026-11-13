@@ -51,6 +51,7 @@ import { McpManager } from './mcp';
 import { runAgent, toolSpecs } from './agent';
 import * as pty from 'node-pty';
 import { VoiceService } from './voice';
+import { VadService } from './vad';
 import { OverlayWindow } from './overlay';
 import { pasteIntoActiveApp } from './paste';
 import { detectActiveApp } from './activeapp';
@@ -214,6 +215,8 @@ function refreshWorkspaceWatcher() {
   } catch { /* ignore */ }
 }
 let voice: VoiceService;
+/** Trained speech detector for automatic listening (Silero). Started on first use. */
+const vad = new VadService(path.join(__dirname, 'vad-worker.js'), path.join(__dirname, '..', 'assets', 'voice', 'silero-vad-v6.2.onnx'));
 let voiceTest: VoiceTest;
 let piper: PiperService;
 /** A desktop notification, only when Jarvin is in the background and the user has not turned them off. */
@@ -1495,6 +1498,13 @@ subagentEdit: runEditSubagent,
   ipcMain.handle('voice:status', () => ({ ...voice.status(), hotkey }));
   ipcMain.handle('voice:download', () => voice.download());
   ipcMain.handle('voice:warm', () => voice.warmCached());
+  ipcMain.handle('voice:vad', (e, audio: unknown, reset: unknown) => {
+    if (!win || e.sender !== win.webContents) return null;
+    const samples = audio instanceof Float32Array ? audio : ArrayBuffer.isView(audio) || Array.isArray(audio) ? new Float32Array(audio as ArrayLike<number>) : null;
+    // One chunk is 64 ms; anything much longer is not from the listener.
+    if (!samples || samples.length > 16000) return null;
+    return vad.score(samples, reset === true);
+  });
   ipcMain.handle('voice:neural-status', (e) => ({ available: !!win && e.sender === win.webContents && !!piper?.available() }));
   ipcMain.handle('voice:neural-warm', async (e) => {
     if (!win || e.sender !== win.webContents) return { ok: false, error: 'Not allowed.' };
@@ -1770,7 +1780,7 @@ app.whenReady().then(() => {
   }
 });
 app.on('before-quit', () => { stopCrashWatch(); quitting = true; try { runJournal?.recover('paused'); } catch { /* start-up recovery handles it */ } });
-app.on('will-quit', () => { tray?.destroy(); screenObserver.stop(); liveScreen.dispose(); privacyWorker.dispose?.(); browserShare.stop(); if (reminderTimer) clearInterval(reminderTimer); jobs.killAll(); globalShortcut.unregisterAll(); discardAllVerified(); cancelAllPulls(); });
+app.on('will-quit', () => { vad.dispose(); tray?.destroy(); screenObserver.stop(); liveScreen.dispose(); privacyWorker.dispose?.(); browserShare.stop(); if (reminderTimer) clearInterval(reminderTimer); jobs.killAll(); globalShortcut.unregisterAll(); discardAllVerified(); cancelAllPulls(); });
 app.on('window-all-closed', () => {
   overlay.dispose();
   void Promise.all([mcp.closeAll(), voice?.dispose(), piper?.dispose(), voiceMcp?.stop()]).finally(() => app.quit());

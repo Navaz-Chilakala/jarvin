@@ -81,8 +81,12 @@ export class Segmenter {
     // The noise estimate survives a reset; only a fresh Segmenter re-calibrates.
   }
 
-  /** Feed one chunk. Returns a finished utterance, or null. */
-  feed(chunk: Float32Array): Float32Array | null {
+  /**
+   * Feed one chunk. Returns a finished utterance, or null.
+   * `speech` is the verdict of the trained speech detector for this chunk, when there is one. It replaces the loudness
+   * test, so a fan, typing or music no longer counts as speech just by being loud. Without it, loudness decides.
+   */
+  feed(chunk: Float32Array, speech?: boolean): Float32Array | null {
     const ms = (chunk.length / this.o.sampleRate) * 1000;
     const level = rms(chunk);
     // The opening calibration only measures the room, so a constant hum is learned before anything can trigger.
@@ -91,7 +95,7 @@ export class Segmenter {
       this.floor = this.floor * 0.7 + level * 0.3;
       return null;
     }
-    const loud = level > this.threshold;
+    const loud = speech ?? level > this.threshold;
     if (!this.on) {
       // Fast to follow the room getting quieter, slow to follow it getting louder (speech must not raise the bar).
       this.floor = loud ? this.floor * 0.995 + level * 0.005 : this.floor * 0.97 + level * 0.03;
@@ -117,7 +121,7 @@ export class Segmenter {
     // Otherwise steady sound that is above the threshold but well below the voice (music, a TV, a fan that started)
     // keeps the utterance open until the 12 s cap, and the request is never sent.
     this.peak = Math.max(level, this.peak * 0.985);
-    const speaking = level > Math.max(this.threshold, this.peak * 0.3);
+    const speaking = speech ?? level > Math.max(this.threshold, this.peak * 0.3);
     if (speaking) {
       this.voicedMs += ms;
       this.quietMs = 0;

@@ -2,6 +2,7 @@ import type { JarvinApi, Settings } from '../shared/types';
 import type { VoiceResult } from '../shared/voice';
 import { speechLevel } from '../shared/voice';
 import { Segmenter } from '../shared/handsfree';
+import { isSpeech } from '../shared/vad';
 import { Recorder } from './voiceui';
 
 export type HandsFreeState = 'off' | 'starting' | 'listening' | 'paused' | 'working' | 'error';
@@ -126,7 +127,8 @@ export function createHandsFree(d: HandsFreeDeps) {
       seg = new Segmenter({ minLevel: speechLevel(activeSensitivity), minSpeechMs: 250, endSilenceMs: 650 });
       const r = d.makeRecorder?.() ?? new Recorder();
       rec = r;
-      await r.start((chunk) => {
+      // `speech` is the trained detector's verdict for the chunk, or undefined to let loudness decide.
+      const handle = (chunk: Float32Array, speech?: boolean) => {
         if (!running || my !== gen || !seg) return;
         d.onLevel?.(rec?.level ?? 0, seg.threshold, seg.speaking);
         if (!d.canListen()) {
@@ -136,9 +138,30 @@ export function createHandsFree(d: HandsFreeDeps) {
         }
         if (state === 'paused') set('listening');
         const wasSpeaking = seg.speaking;
-        const utt = seg.feed(chunk);
+        const utt = seg.feed(chunk, speech);
         if (!wasSpeaking && seg.speaking) d.onSpeechStart?.();
         if (utt) void segment(utt, my);
+      };
+      // Each chunk is scored by the trained speech detector before the segmenter sees it. Chunks are handled strictly in
+      // order. If the detector cannot run, listening carries on with the loudness check and says so once.
+      let neural = d.getSettings().voice.detector !== 'loudness' && typeof d.jarvin.voiceVad === 'function';
+      let scoring: Promise<void> = Promise.resolve();
+      let first = true;
+      await r.start((chunk) => {
+        if (!neural) return handle(chunk);
+        const reset = first; first = false;
+        scoring = scoring.then(async () => {
+          if (!neural) return handle(chunk);
+          let probability: number | null = null;
+          try { probability = await d.jarvin.voiceVad(chunk, reset); } catch { /* treated as unavailable */ }
+          if (probability === null) {
+            neural = false;
+            if (my === gen) d.onLog?.('The trained speech detector is not available, so loud sounds are treated as speech (the older check).');
+            return handle(chunk);
+          }
+          if (reset && my === gen) d.onLog?.('Speech detector: trained model (Silero). Fans, typing and music are not treated as speech.');
+          handle(chunk, isSpeech(probability, seg?.speaking === true));
+        });
       }, false);
       if (my === gen && running) set('listening');
       else r.cancel();

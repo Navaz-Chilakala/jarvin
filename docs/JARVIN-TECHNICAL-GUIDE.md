@@ -527,7 +527,7 @@ While the pet is floating, a hidden page keeps only the latest screen frame in m
 flowchart TD
     Mic[Microphone, 16 kHz] --> Sw{Mic switched on?}
     Sw -->|no| Idle([Nothing is recorded])
-    Sw -->|yes| Seg["Segmenter<br/>finds one utterance"]
+    Sw -->|yes| Seg["Speech detector + segmenter<br/>find one utterance"]
     Seg --> Busy{"Manual recording or<br/>another transcription in progress?"}
     Busy -->|yes| Skip([Skipped or queued])
     Busy -->|no| STT["Recogniser<br/>(Qwen3-ASR)"]
@@ -546,7 +546,7 @@ flowchart TD
 
 **The microphone switch.** The microphone is off when Jarvin starts (`voice.listenOnStart` is false). It is switched on from the main window or from the round button on the pet. With the switch off, nothing is recorded at all. This replaced always-on listening, which picked up too much.
 
-**The segmenter** (`src/shared/handsfree.ts`). It measures loudness in short chunks and tracks the background noise level. Speech must be clearly louder than the background and last long enough to start an utterance; a stretch of quiet ends it. About 0.4 s of audio from before the start is kept so the first word is not clipped, and nothing but the utterance being built is ever held in memory. In hands-free mode an utterance needs at least 250 ms of speech and ends after 650 ms of quiet.
+**The speech detector and the segmenter.** Each 64 ms chunk of audio is first scored by a trained speech detector, Silero VAD, which answers "how likely is this to be a person speaking?". It runs on onnxruntime in its own small process (`src/main/vad-worker.ts`). The segmenter (`src/shared/handsfree.ts`) then turns those verdicts into utterances: enough speech in a row starts one, and a stretch of non-speech ends it. A probability of 0.5 starts an utterance and 0.35 keeps it going. If the detector cannot run, the segmenter falls back to the older loudness check (speech must be clearly louder than the background) and the voice log says so. In an offline comparison, the loudness check passed five generated noises (fan, hiss, music-like tones, door slams) to the recogniser as speech and the trained detector passed none, while both caught all 20 of the user's recordings. About 0.4 s of audio from before the start is kept so the first word is not clipped, and nothing but the utterance being built is ever held in memory. In hands-free mode an utterance needs at least 250 ms of speech and ends after 650 ms of quiet.
 
 **The recogniser.** The audio goes to the main process (`voice:transcribe`), which runs the speech model in a separate worker so the app stays responsive. The preferred model is **Qwen3-ASR**, run through the sherpa-onnx library, with the hint words `Jarvin, Hey Jarvin, stop`.
 
@@ -777,7 +777,7 @@ The distinction matters and the tracker keeps to it: "built" means code and unit
 
 - **Smart App Control and unsigned files.** Windows 11's Smart App Control blocks unsigned executables and libraries, and not consistently. It prevents building or running the installer on the development PC, and on some launches blocks the library behind Qwen3-ASR and Kokoro, which triggers the weaker speech fallback. The lasting fix is a code-signing certificate. Smart App Control cannot be switched back on once turned off, so turning it off is not treated as a fix.
 - **Screen tasks are slow with `qwen3:8b`**: 15 to 18 s per screen step on 8 GB of VRAM, because chat and vision models swap. `qwen3.5:4b` alone does a step in 2 to 3 s but was less reliable.
-- **Speech detection is loudness-based.** A loud non-speech sound can start an utterance. The planned replacement is a trained speech detector (see VOICE-DESIGN.md, steps 1 to 6; only step 0, the voice test, is built).
+- **Voice reliability is half built.** The trained speech detector is in, but it was measured on generated noises and saved recordings, not yet on real room noise. The dedicated wake-word model, the confidence filter and push-to-talk from VOICE-DESIGN.md are not built.
 - **Small-model mistakes.** A local 8B model sometimes reports an expected result instead of the observed one, or needs a retry. Many prompt rules and tool results (`window_shows`, shape reports) exist to counter this, but it cannot be removed entirely.
 - **Windows only.** UI Automation, `SendInput` and the PowerShell helpers have no equivalent wired up for other systems.
 - **Not all features are live-tested.** The tracker lists which were only checked by unit tests.

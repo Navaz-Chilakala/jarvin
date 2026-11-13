@@ -122,6 +122,7 @@ const api: JarvinApi = {
   voiceStatus: () => inv('voice:status'),
   voiceDownload: () => inv('voice:download'),
   voiceWarm: () => inv('voice:warm'),
+  voiceVad: (audio, reset) => inv('voice:vad', audio, reset),
   neuralVoiceStatus: () => inv('voice:neural-status'),
   neuralVoiceWarm: () => inv('voice:neural-warm'),
   neuralVoiceSynthesize: (text, rate) => inv('voice:neural-synthesize', text, rate),
