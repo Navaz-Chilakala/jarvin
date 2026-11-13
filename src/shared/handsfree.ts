@@ -64,6 +64,25 @@ export class Segmenter {
     return this.on;
   }
 
+  /** Change how much quiet ends an utterance. Shorter while Jarvin is busy, so "stop" is acted on sooner. */
+  setEndSilence(ms: number): void {
+    this.o.endSilenceMs = ms;
+  }
+
+  /** Length of the utterance being built, in milliseconds (0 when none). */
+  get currentMs(): number {
+    return this.on ? this.bufMs : 0;
+  }
+
+  /** A copy of the utterance so far, for an early look before it ends. Null when none is open. */
+  current(): Float32Array | null {
+    if (!this.on) return null;
+    const out = new Float32Array(this.buf.reduce((n, c) => n + c.length, 0));
+    let o = 0;
+    for (const c of this.buf) { out.set(c, o); o += c.length; }
+    return out;
+  }
+
   /** Current speech threshold. Rises with background noise so a fan or a hum does not trigger it. */
   get threshold(): number {
     return Math.max(this.o.minLevel, this.floor * this.o.noiseFactor);

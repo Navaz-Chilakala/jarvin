@@ -150,6 +150,22 @@ export function matchWake(text: string): string | null {
 /* ---------------- spoken replies ---------------- */
 
 /** A short, speakable version of a markdown answer: no code, tables, URLs or markup; at most `max` characters of whole sentences. */
+/** A whole utterance that only asks Jarvin to stop: "stop", "Jarvin, stop that", "cancel", "be quiet". Nothing longer counts. */
+export function isStopPhrase(text: string): boolean {
+  return /^(?:(?:hey[,\s]+)?jarvi[ns][,\s]+)?(?:please\s+)?(?:stop|cancel|abort|be quiet|quiet)(?:\s+(?:it|that|now|please|everything|all|talking|speaking))*[\s.!]*$/i.test(text.trim());
+}
+
+/**
+ * The early look at an unfinished utterance uses a small, fast recognizer that mangles the name ("Hey Jarvin, stop"
+ * comes out as "Hayds, Avin, stop."). So here a short utterance that ENDS in a stop word counts. Used only while
+ * Jarvin is working or speaking, where stopping by mistake costs little and stopping late costs more.
+ */
+export function isEarlyStop(text: string): boolean {
+  if (isStopPhrase(text)) return true;
+  const words = text.toLowerCase().replace(/[^a-z' ]/g, ' ').trim().split(/\s+/).filter(Boolean);
+  return words.length >= 1 && words.length <= 5 && /^(?:stop|stopped|cancel|cancelled|canceled)$/.test(words[words.length - 1]);
+}
+
 export function speakable(markdown: string, max = 400): string {
   let t = markdown
     .replace(/```[\s\S]*?```/g, ' ')

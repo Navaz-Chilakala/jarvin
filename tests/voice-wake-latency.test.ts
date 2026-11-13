@@ -15,7 +15,8 @@ test('hands-free clean mode sends a command without a separate model cleanup req
     const voice = new VoiceService(() => settings, { appRoot: '', data: '', workerFile: '' }, () => {});
     voice.status = () => ({ available: true, cached: true, model: 'fake', sizeMB: 1 });
     (voice as any).stt = { transcribe: async () => 'Hey Jarvin what is the temperature outside today' };
-    const result = await voice.process(new Float32Array(16000).fill(0.1), { wake: true });
+    // Three seconds of audio: eight words in one second would rightly be dropped as made-up.
+    const result = await voice.process(new Float32Array(48000).fill(0.1), { wake: true });
     assert.match(result.text, /temperature outside today/i);
     assert.equal(result.cleanup, 'basic');
     (voice as any).stt = { transcribe: async () => 'what is the temperature outside today' };

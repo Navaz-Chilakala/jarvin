@@ -3,7 +3,11 @@ import type { VoiceResult } from '../shared/voice';
 import { speechLevel } from '../shared/voice';
 import { Segmenter } from '../shared/handsfree';
 import { isSpeech } from '../shared/vad';
+import { isEarlyStop } from '../shared/voicecmd';
 import { Recorder } from './voiceui';
+
+const END_SILENCE_MS = 650;
+const URGENT_END_SILENCE_MS = 350;
 
 export type HandsFreeState = 'off' | 'starting' | 'listening' | 'paused' | 'working' | 'error';
 
@@ -22,6 +26,12 @@ export interface HandsFreeDeps {
   onIgnored?: (heard: string) => void;
   /** The name was heard by itself; the next utterance will be taken as the request. */
   onWake?: () => void;
+  /** True while Jarvin is working or speaking: "stop" is then listened for more eagerly. */
+  urgent?: () => boolean;
+  /** "Stop" was recognised before the utterance even ended (only while urgent). */
+  onFastStop?: (heard: string) => void;
+  /** The recognizer now in use (it can change when Windows blocks the accurate one). */
+  onRecognizer?: (model: string) => void;
   /** Sustained speech onset, before waiting for transcription or sentence completion. */
   onSpeechStart?: () => void;
   /** A locally transcribed utterance is ready to run. */
@@ -95,6 +105,7 @@ export function createHandsFree(d: HandsFreeDeps) {
         d.onLog?.(`Heard "${r.text.slice(0, 60)}" (${r.ms} ms transcription; ${Math.round(performance.now() - endedAt)} ms since segment closed).`);
         d.onResult(r);
       } else if (r.why === 'nowake') { d.onLog?.(`Ignored (no "Jarvin" at the start): "${(r.heard ?? '').slice(0, 60)}"`); d.onIgnored?.(r.heard ?? ''); }
+      else if (r.why === 'junk') d.onLog?.(`Ignored (did not sound like a real request): "${(r.heard ?? '').slice(0, 60)}"`);
       else if (r.why === 'quiet') d.onLog?.('Too quiet to be speech, ignored. Check the level above.');
       else d.onLog?.('Transcribed nothing (noise), ignored.');
     } catch (e: any) {
@@ -103,11 +114,18 @@ export function createHandsFree(d: HandsFreeDeps) {
       if (my === gen) {
         working = false;
         if (running && state !== 'error') set(d.canListen() ? 'listening' : 'paused');
+        reportRecognizer();
         const next = pending;
         pending = null;
         if (next && running) void segment(next.audio, my, next.endedAt);
       }
     }
+  }
+
+  /** Tells the interface which recognizer is in use. Asked again after each utterance because it can change. */
+  function reportRecognizer() {
+    if (!d.onRecognizer) return;
+    void d.jarvin.voiceStatus().then((st) => d.onRecognizer?.(st.model)).catch(() => undefined);
   }
 
   async function start() {
@@ -121,10 +139,10 @@ export function createHandsFree(d: HandsFreeDeps) {
       if (!st.available || !st.cached) return fail('Automatic listening needs the local speech model. Open voice settings to download it, then retry.');
       // Start loading the already-cached model while the microphone starts. The
       // first spoken request can then reuse the warm worker instead of loading it.
-      void d.jarvin.voiceWarm().then((result) => { if (my !== gen) return; if (!result.ok) d.onLog?.(`Speech model warm-up: ${result.error ?? 'unavailable'}`); else if (result.note) d.onLog?.(result.note); }).catch(() => {});
+      void d.jarvin.voiceWarm().then((result) => { if (my !== gen) return; if (!result.ok) d.onLog?.(`Speech model warm-up: ${result.error ?? 'unavailable'}`); else if (result.note) d.onLog?.(result.note); reportRecognizer(); }).catch(() => {});
       running = true;
       activeSensitivity = d.getSettings().voice.sensitivity;
-      seg = new Segmenter({ minLevel: speechLevel(activeSensitivity), minSpeechMs: 250, endSilenceMs: 650 });
+      seg = new Segmenter({ minLevel: speechLevel(activeSensitivity), minSpeechMs: 250, endSilenceMs: END_SILENCE_MS });
       const r = d.makeRecorder?.() ?? new Recorder();
       rec = r;
       // `speech` is the trained detector's verdict for the chunk, or undefined to let loudness decide.
@@ -137,13 +155,31 @@ export function createHandsFree(d: HandsFreeDeps) {
           return;
         }
         if (state === 'paused') set('listening');
+        // While Jarvin is working or speaking, an utterance ends after less quiet, so a spoken "stop" is acted on sooner.
+        const urgent = d.urgent?.() === true;
+        seg.setEndSilence(urgent ? URGENT_END_SILENCE_MS : END_SILENCE_MS);
         const wasSpeaking = seg.speaking;
         const utt = seg.feed(chunk, speech);
         if (!wasSpeaking && seg.speaking) d.onSpeechStart?.();
-        if (utt) void segment(utt, my);
+        if (utt) { void segment(utt, my); return; }
+        // Fast "stop": while urgent, peek at the utterance before it ends. If the first half second already is "stop",
+        // act now instead of waiting for the pause and the full transcription.
+        if (urgent && seg.speaking && !peeking && seg.currentMs >= 450 && seg.currentMs <= 2500 && performance.now() - lastPeek >= 350) {
+          const soFar = seg.current();
+          if (soFar) {
+            peeking = true; lastPeek = performance.now();
+            void d.jarvin.voicePartial(soFar).then((text) => {
+              if (!text || !isEarlyStop(text) || !running || my !== gen || !seg?.speaking || d.urgent?.() !== true) return;
+              seg.reset();
+              d.onLog?.(`Heard "${text.slice(0, 30)}" before you finished speaking.`);
+              d.onFastStop?.(text);
+            }).catch(() => undefined).finally(() => { peeking = false; });
+          }
+        }
       };
       // Each chunk is scored by the trained speech detector before the segmenter sees it. Chunks are handled strictly in
       // order. If the detector cannot run, listening carries on with the loudness check and says so once.
+      let peeking = false, lastPeek = 0;
       let neural = d.getSettings().voice.detector !== 'loudness' && typeof d.jarvin.voiceVad === 'function';
       let scoring: Promise<void> = Promise.resolve();
       let first = true;

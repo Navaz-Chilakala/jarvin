@@ -559,7 +559,7 @@ function publishAssistantState() {
   const micButton = $('mic');
   const handsFree = $('hfBtn').dataset.state;
   const mic = micButton.classList.contains('rec') ? 'recording' : micButton.classList.contains('busy') || handsFree === 'working' ? 'processing' : micButton.classList.contains('err') || handsFree === 'error' ? 'error' : handsFree === 'listening' ? 'listening' : handsFree === 'paused' || handsFree === 'starting' ? 'paused' : 'off';
-  $('assistantPresence').textContent = running ? 'Working on your request' : mic === 'recording' ? 'Recording' : mic === 'processing' ? 'Processing voice' : mic === 'listening' ? 'Listening' : mic === 'error' ? 'Microphone needs attention' : mic === 'paused' ? 'Microphone paused' : 'Ready · mic off';
+  $('assistantPresence').textContent = running ? 'Working on your request' : mic === 'recording' ? 'Recording' : mic === 'processing' ? 'Processing voice' : mic === 'listening' ? `Listening${$('hfBtn').dataset.engine ? ` · ${$('hfBtn').dataset.engine}` : ''}` : mic === 'error' ? 'Microphone needs attention' : mic === 'paused' ? 'Microphone paused' : 'Ready · mic off';
   jarvin.assistantState({ working: running, mic, speaking: assistantSpeaking, level: mic === 'listening' ? assistantMicLevel : 0, hearing: mic === 'listening' && assistantHearing });
 }
 
@@ -1851,6 +1851,9 @@ async function init() {
     if (action === 'stop') { voiceCtl.stopSpeaking(); return; }
     if (action === 'tasks') { setView('assistant'); void tasksUi.open(); return; }
     if (action === 'mute') { voiceCtl.toggleListening(); return; }
+    // Holding the pet's microphone button is push-to-talk: record while held, send on release.
+    if (action === 'talk-start') { if (!voiceCtl.isBusy()) voiceCtl.press(); return; }
+    if (action === 'talk-end') { voiceCtl.release(); return; }
     if (action === 'voice') {
       if (voiceCtl.isBusy()) { voiceCtl.toggle({ live: false }); return; }
       if (companionVoicePending) return;
@@ -2717,7 +2720,7 @@ const voiceActions: VoiceActions = {
     await send(text, { preserveDraft: true });
   },
 };
-const voiceCtl = initVoice({ jarvin, getSettings: () => settings, input, send: () => send(), toast, autosize, models: () => [...modelSel.options].map((o) => o.value), actions: voiceActions, files: () => jarvin.voiceFiles(), onSpeaking: (speaking) => { assistantSpeaking = speaking; publishAssistantState(); }, onMicLevel: (level, hearing) => {
+const voiceCtl = initVoice({ jarvin, getSettings: () => settings, input, send: () => send(), toast, autosize, models: () => [...modelSel.options].map((o) => o.value), actions: voiceActions, files: () => jarvin.voiceFiles(), onSpeaking: (speaking) => { assistantSpeaking = speaking; publishAssistantState(); }, onRecognizer: () => publishAssistantState(), onMicLevel: (level, hearing) => {
   assistantMicLevel = level; assistantHearing = hearing;
   if (performance.now() - assistantLevelAt < 100) return;
   assistantLevelAt = performance.now(); publishAssistantState();

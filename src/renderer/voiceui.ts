@@ -2,10 +2,14 @@ import { isEchoOfOwnSpeech } from '../shared/echo';
 import { icon } from './icons';
 import { esc } from './markdown';
 import { pickVoice } from '../shared/voicepick';
-import { SAMPLE_RATE, acceleratorFromKey, resolveSpokenFile, speechLevel, VOICE_LANGUAGES, WHISPER_SIZES, isEnglishOnly, QWEN_ASR_MODEL, type OverlayMsg, type VoiceResult, type VoiceSettings } from '../shared/voice';
+import { SAMPLE_RATE, acceleratorFromKey, resolveSpokenFile, speechLevel, VOICE_LANGUAGES, WHISPER_SIZES, isEnglishOnly, QWEN_ASR_MODEL, hfModelId, type OverlayMsg, type VoiceResult, type VoiceSettings } from '../shared/voice';
 import type { JarvinApi, Settings } from '../shared/types';
 import { scrollVoiceDestination, speakable, voiceApproval, type VoiceCommand } from '../shared/voicecmd';
 import { createHandsFree, type HandsFreeState } from './handsfree';
+import { shortModelName } from '../shared/voicetest';
+
+/** Holding the microphone button or key longer than this makes it push-to-talk: releasing ends the recording. */
+const HOLD_TO_TALK_MS = 600;
 
 /** What spoken commands can do in the app. Implemented in renderer.ts, where the tabs, chat and cards live. */
 export interface VoiceActions {
@@ -312,6 +316,8 @@ export interface VoiceDeps {
   files: () => Promise<string[]>;
   onSpeaking?: (speaking: boolean) => void;
   onMicLevel?: (level: number, hearing: boolean) => void;
+  /** The recognizer in use changed (shown next to the microphone state). */
+  onRecognizer?: (label: string, weaker: boolean) => void;
 }
 
 const MAX_SECONDS = 180;
@@ -695,6 +701,24 @@ export function initVoice(d: VoiceDeps) {
     canListen: () => state === 'idle',
     busyReason: () => 'you are recording or Jarvin is transcribing',
     onSpeechStart: silenceOwnVoice,
+    urgent: () => d.actions.isRunning() || !!speaker.activeReply,
+    onFastStop: (heard) => {
+      if (speaker.heardOwnVoice(heard)) return;
+      logVoice('   → stopping now.');
+      show('Stopping.', 1500, 'ok');
+      speaker.interrupt();
+      void handle({ text: heard, raw: heard, ms: 0, cleanup: 'none', command: { type: 'stop' }, wake: true } as VoiceResult, true).catch((error: any) => show(esc(String(error?.message ?? error)), 6000, 'bad'));
+    },
+    onRecognizer: (model) => {
+      const chosen = hfModelId(d.getSettings().voice);
+      const weaker = chosen === QWEN_ASR_MODEL && model !== QWEN_ASR_MODEL;
+      const label = `${shortModelName(model)}${weaker ? ' (weaker)' : ''}`;
+      if (hfBtn.dataset.engine === label) return;
+      hfBtn.dataset.engine = label;
+      hfBtn.classList.toggle('weak', weaker);
+      renderMicLabel();
+      d.onRecognizer?.(label, weaker);
+    },
     onLog: (line) => {
       // The accurate recognizer being blocked must never pass unnoticed: on the user's voice the fallback gets four
       // times as many words wrong and hears the name 4 times in 10 instead of 10.
@@ -732,12 +756,18 @@ export function initVoice(d: VoiceDeps) {
       hfBtn.classList.toggle('err', s === 'error');
       hfBtn.setAttribute('aria-pressed', String(on));
       hfBtn.dataset.state = s;
-      $('hfLabel').textContent = s === 'error' ? 'Retry mic' : s === 'starting' ? 'Starting mic…' : s === 'paused' ? 'Mic paused' : s === 'working' ? 'Hearing…' : on ? 'Listening' : 'Mic off';
+      renderMicLabel();
       hfBtn.title =
-        s === 'error' ? `Microphone stopped: ${msg} Click to retry.` : on ? 'Microphone is on. Click to turn it off.' : 'Microphone is off. Click to turn it on.';
+        s === 'error' ? `Microphone stopped: ${msg} Click to retry.` : on ? `Microphone is on. Recognizer: ${hfBtn.dataset.engine ?? 'starting'}. Click to turn it off.` : 'Microphone is off. Click to turn it on.';
       if (s === 'error' && msg) show(esc(msg), 9000, 'bad');
     },
   });
+  /** The mic button always names the recognizer in use while the microphone is on, e.g. "Listening · Qwen3-ASR". */
+  function renderMicLabel() {
+    const s = hfBtn.dataset.state ?? 'off';
+    const engine = hfBtn.dataset.engine ? ` · ${hfBtn.dataset.engine}` : '';
+    $('hfLabel').textContent = s === 'error' ? 'Retry mic' : s === 'starting' ? 'Starting mic…' : s === 'paused' ? 'Mic paused' : s === 'working' ? `Hearing…${engine}` : s === 'off' ? 'Mic off' : `Listening${engine}`;
+  }
   const toggleListening = () => { if (hf.state === 'error') hf.retry(); else hf.toggleMute(); };
   hfBtn.onclick = toggleListening;
   const syncHandsFree = () => {
@@ -843,7 +873,28 @@ export function initVoice(d: VoiceDeps) {
     if (state === 'recording') void finish();
     else if (state === 'idle') void start('jarvin', options?.live !== false);
   };
-  mic.onclick = () => toggle();
+  // Push-to-talk: hold the microphone button (or Ctrl+Shift+M), speak, release. No wake phrase and no speech detector
+  // are involved: exactly what was recorded is sent. A short press still works as a switch (press to start, press to stop).
+  let pressedAt = 0;
+  const press = () => {
+    if (state === 'recording') { pressedAt = 0; void finish(); return; }
+    pressedAt = performance.now();
+    if (state === 'idle') void start('jarvin');
+  };
+  const release = () => {
+    const held = pressedAt ? performance.now() - pressedAt : 0;
+    pressedAt = 0;
+    if (held < HOLD_TO_TALK_MS) return; // a short press leaves the recording running until the next press
+    const giveUp = performance.now() + 1500;
+    const end = () => { if (state === 'recording') void finish(); else if (state === 'starting' && performance.now() < giveUp) setTimeout(end, 80); };
+    end();
+  };
+  mic.onpointerdown = (e) => { if (e.button !== 0) return; try { mic.setPointerCapture(e.pointerId); } catch { /* not capturable */ } press(); };
+  mic.onpointerup = () => release();
+  mic.onpointercancel = () => release();
+  // Keyboard activation (Enter or Space on the button) and scripted clicks have no pointer press.
+  mic.onclick = (e) => { if (e.detail === 0) toggle(); };
+  document.addEventListener('keyup', (e) => { if (e.key.toLowerCase() === 'm' && pressedAt) release(); }, true);
   d.jarvin.onVoiceHotkey(({ jarvinFocused }) => {
     if (state === 'recording') void finish();
     else if (state === 'idle') void start(jarvinFocused || !d.getSettings().voice.insertIntoApp ? 'jarvin' : 'external');
@@ -857,14 +908,14 @@ export function initVoice(d: VoiceDeps) {
         cancel();
       } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'm') {
         e.preventDefault();
-        toggle();
+        if (!e.repeat) press();
       }
     },
     true,
   );
   // End-to-end tests feed recognised speech in directly (a headless machine has no way to speak commands).
   if (new URLSearchParams(location.search).has('e2e')) (window as any).__voiceHandle = (r: VoiceResult, automatic = false) => handle(r, automatic);
-  return { syncVisibility, syncHandsFree, setVoiceTest, toggle, toggleListening, cancelDiagnostic, beginSpeech: () => speaker.beginReply(), isBusy: () => state !== 'idle' || diagnosticStarting || !!diagnostic || diagnosticWorking, speak: (t: string) => speaker.speak(t), pushSpeech: (t: string) => speaker.push(t), flushSpeech: () => speaker.flush(), finishSpeech: () => speaker.finish(), stopSpeaking: () => speaker.interrupt(), warmNatural: () => speaker.warmNatural() };
+  return { syncVisibility, syncHandsFree, setVoiceTest, toggle, press, release, toggleListening, cancelDiagnostic, beginSpeech: () => speaker.beginReply(), isBusy: () => state !== 'idle' || diagnosticStarting || !!diagnostic || diagnosticWorking, speak: (t: string) => speaker.speak(t), pushSpeech: (t: string) => speaker.push(t), flushSpeech: () => speaker.flush(), finishSpeech: () => speaker.finish(), stopSpeaking: () => speaker.interrupt(), warmNatural: () => speaker.warmNatural() };
 }
 
 /* ---------------- settings dialog ---------------- */

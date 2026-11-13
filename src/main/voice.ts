@@ -12,6 +12,7 @@ import {
   SAMPLE_RATE, applyVocabulary, basicCleanup, buildCleanupMessages, cleanTranscript, hasSpeech, speechLevel, hfModelId, modelMB, plausibleRewrite, tagFiles,
   tidyModelOutput, vocabTerms, rms, type VoiceDiagnostic, type VoiceHistoryEntry, type VoiceProgress, type VoiceResult, type VoiceStatus,
   QWEN_ASR_MODEL,
+  implausibleHearing,
 } from '../shared/voice';
 
 const isCloudModel = (m: string) => /(:|-)cloud$/i.test(m);
@@ -77,7 +78,8 @@ export class VoiceService {
     private emit: (p: VoiceProgress) => void,
   ) {
     this.stt = new SttService(dirs.workerFile, this.cacheDir, emit);
-    this.fastPartial = new SttService(dirs.workerFile, this.cacheDir, () => undefined);
+    // In its own process: inside the app, a second recognizer on a worker thread fails to load its native library.
+    this.fastPartial = new SttService(dirs.workerFile, this.cacheDir, () => undefined, true);
   }
 
   /** Set when the Qwen recognizer's native module could not load (Windows Smart App Control blocks the unsigned file on some PCs). */
@@ -159,7 +161,13 @@ export class VoiceService {
   async warmCached(): Promise<{ ok: boolean; error?: string; note?: string }> {
     const st = this.status();
     if (!st.available || !st.cached) return { ok: false, error: 'The local speech model is not cached.' };
-    try { await this.withFallback((model) => this.stt.load(model, true)); return { ok: true, note: this.fallbackNote() }; }
+    try {
+      await this.withFallback((model) => this.stt.load(model, true));
+      // The small recognizer behind the early "stop" check is loaded now too, so its first use is not seconds late.
+      const quick = 'onnx-community/moonshine-base-ONNX';
+      if (st.model === QWEN_ASR_MODEL && engineInstalled(this.dirs.appRoot, quick) && modelCached(this.cacheDir, quick)) void this.fastPartial.load(quick, true).catch(() => undefined);
+      return { ok: true, note: this.fallbackNote() };
+    }
     catch (e: any) { return { ok: false, error: String(e?.message ?? e) }; }
   }
 
@@ -287,6 +295,8 @@ export class VoiceService {
     let raw = cleanTranscript(fakeRaw ?? (await this.transcribeRaw(audio, !!o.fast)), seconds);
     if (process.env.JARVIN_E2E) console.log(`[e2e] heard (${seconds.toFixed(1)}s, wake=${!!o.wake}): ${raw}`);
     if (!raw) return o.wake ? { ...silent(), why: 'empty' } : silent();
+    // Automatic listening only: drop hearings that do not look like something a person just said (made-up words from noise).
+    if ((o.wake || o.name) && implausibleHearing(raw, seconds)) return { ...silent(), why: 'junk', heard: raw };
     if (o.wake) {
       const rest = matchWake(raw);
       // "Stop" and "cancel" are always obeyed, with or without the name. Other speech without the name is dropped.

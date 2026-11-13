@@ -168,7 +168,7 @@ function handleAssistantWidgetAction(action: AssistantWidgetAction): void {
   if (action === 'stop') { stopCurrentRun(); if (win && !win.isDestroyed()) win.webContents.send('assistant:action', 'stop'); assistantWidget.clearAttention(); return; }
   if (action === 'pause') { pauseCurrentRun(); if (win && !win.isDestroyed()) win.webContents.send('assistant:action', 'stop'); assistantWidget.clearAttention(); return; }
   if (!win || win.isDestroyed()) return;
-  if (action === 'voice' || action === 'mute') { win.webContents.send('assistant:action', action); return; }
+  if (action === 'voice' || action === 'mute' || action === 'talk-start' || action === 'talk-end') { win.webContents.send('assistant:action', action); return; }
   screenObserver.stop(); liveScreen.stop(); assistantWidget.watching(false);
   assistantWidget.hide();
   if (!(process.env.JARVIN_E2E === '1' && process.env.JARVIN_E2E_HEADLESS === '1')) { raiseWindow(win); }
@@ -586,7 +586,7 @@ function registerIpc() {
     assistantWidget.update({ working: state.working, speaking: state.speaking, mic: state.mic, level: Number.isFinite(state.level) ? Math.max(0, Math.min(1, state.level!)) : 0, hearing: state.hearing === true });
   });
   ipcMain.on('assistant-widget:action', (e, action: AssistantWidgetAction) => {
-    if (!assistantWidget.owns(e.sender) || !['assistant', 'code', 'voice', 'mute', 'observation', 'stop', 'pause', 'tasks', 'quit'].includes(action)) return;
+    if (!assistantWidget.owns(e.sender) || !['assistant', 'code', 'voice', 'mute', 'talk-start', 'talk-end', 'observation', 'stop', 'pause', 'tasks', 'quit'].includes(action)) return;
     handleAssistantWidgetAction(action);
   });
   ipcMain.on('assistant-widget:move', (e, point) => assistantWidget.move(e.sender, point));

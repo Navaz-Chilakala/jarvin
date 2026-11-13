@@ -1,2 +1,2 @@
-export type AssistantWidgetAction = 'assistant' | 'code' | 'voice' | 'mute' | 'observation' | 'stop' | 'pause' | 'tasks' | 'quit';
+export type AssistantWidgetAction = 'assistant' | 'code' | 'voice' | 'mute' | 'talk-start' | 'talk-end' | 'observation' | 'stop' | 'pause' | 'tasks' | 'quit';
 export interface AssistantWidgetState { working: boolean; speaking: boolean; attention: boolean; jobs: number; level?: number; hearing?: boolean; watching?: boolean; observationPaused?: boolean; screenBlocked?: boolean; desktop: 'off' | 'observing' | 'controlling'; outcome: 'ready' | 'finished' | 'failed' | 'stopped' | 'paused'; mic: 'off' | 'listening' | 'recording' | 'processing' | 'paused' | 'error' }

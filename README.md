@@ -4,6 +4,26 @@ A Windows voice companion with a floating pet, local screen vision, mouse/keyboa
 
 For a current, evidence-based list of what is built and what remains, see [Jarvin product status](docs/PRODUCT-STATUS.md). The [implementation tracker](docs/JARVIS-IMPLEMENTATION.md) maps the wider JARVIS brief to the app.
 
+## See it
+
+![Jarvin after opening Calculator and working out 12 times 12](promo/linkedin-3-task-done.png)
+
+- **Videos:** [demo, landscape](promo/jarvin-linkedin-sound.mp4) · [demo, vertical](promo/jarvin-whatsapp-sound.mp4) · [the pet](promo/jarvin-pet-linkedin-sound.mp4)
+- **How it works:** [technical guide](docs/JARVIN-TECHNICAL-GUIDE.md) (ideas first, then the architecture, with diagrams) · [slides, PDF](docs/JARVIN-SLIDES.pdf)
+- **Status:** [implementation tracker](docs/JARVIS-IMPLEMENTATION.md) (what is tested, what is not, what is next)
+
+What it does, in short:
+
+- **Acts on your PC:** opens apps, presses buttons, types, snaps windows, changes volume and brightness, reads the screen with a local vision model.
+- **Voice:** "Hey Jarvin, ..." with local speech recognition, a trained speech detector, spoken replies, "stop" at any time, and push-to-talk.
+- **Documents:** reads PDF, Word, Excel, PowerPoint and CSV; creates Word, Excel, PowerPoint and PDF.
+- **Day to day:** reminders, routines, web search and research, memory across chats.
+- **Coding:** editor, terminal, Git, tests, checkpoints with undo, verified changes in a private copy.
+- **Supervised:** every action passes a permission check in code; risky ones ask first.
+- **Local:** chat, vision and speech models run on the laptop through Ollama. Cloud models are optional.
+
+It is a work in progress. The installer is unsigned, voice has been measured mostly on recordings, and not every feature has been tried live; the tracker says which.
+
 ## Run
 
 ```bash
@@ -37,7 +57,7 @@ Open **More tools → Memories** to inspect, edit, or delete saved memories. Sav
 
 If a run is interrupted by a crash or pauses at its step limit, open **Tasks** to review the request and recorded tool activity. Review creates an editable draft; it never restarts work by itself. Check existing files and external actions before sending it, and reattach any images. Recovery records are stored locally, separately from chat history; the Tasks panel can remove individual recovery records or clear finished records for the current folder. Recovery does not restore the complete model/tool context or guarantee that earlier actions were undone.
 
-Voice starts listening automatically while Jarvin is running, including when minimized or floating. No wake phrase or hands-free switch is needed. Use the microphone mute control when desired. Speaking during a reply or starting manual recording stops playback and cancels the old response before sending a new request. The floating pet's **Stop reply** action stops audio even after the model has finished. Spoken requests leave an unfinished typed draft untouched. **Settings → Voice** offers Moonshine for quick English transcripts, Qwen3-ASR for more accurate final English transcripts, and Distil Whisper as another accuracy option. The current machine uses Qwen3-ASR offline, with Moonshine for interim text. Automatic Qwen requests also use a small local Silero voice activity model to reject some non-speech audio before transcription. **Check microphone accuracy** in Voice settings records a short phrase and shows raw model output, Silero's speech verdict, cleanup, input level and recognition time without sending it to chat or saving it. See [local measurements and limitations](docs/local-companion-validation.md).
+Voice: the microphone is off when Jarvin starts. Switch it on from the mic switch in the chat box or the round button on the pet. With it on, Jarvin acts only on speech that starts with "Hey Jarvin" (or "Jarvin" / "Hey Jarvis"); everything else is ignored. "Stop" works at any time without the name, and while a task is running only a stop word interrupts it. A trained speech detector (Silero) separates speech from fans, typing and music, and the mic switch names the recognizer in use, for example "Listening · Qwen3-ASR". Push-to-talk needs no name: hold the microphone button, Ctrl+Shift+M, or the pet's mic button, speak, and release. Ctrl+Alt+J dictates into any app. The design and its measurements are in [VOICE-DESIGN.md](docs/VOICE-DESIGN.md) and the [technical guide](docs/JARVIN-TECHNICAL-GUIDE.md).
 
 Jarvin is still being tested as a desktop companion. Physical microphone accuracy, speaker echo cancellation, and arbitrary desktop actions are not guaranteed by the synthetic checks. It runs in your Windows user session, not as a Windows service.
 

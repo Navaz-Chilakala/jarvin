@@ -52,7 +52,23 @@ function showPose(name: string) {
   if (picture.getAttribute('src') !== src && picture.src !== src) picture.src = src;
 }
 const micToggle = $('micToggle');
-micToggle.onclick = (event) => { event.stopPropagation(); window.assistantWidget.act('mute'); };
+// A short click switches the microphone on or off. Holding the button is push-to-talk: record while held, send on release.
+let holdTimer: ReturnType<typeof setTimeout> | null = null;
+let talking = false;
+micToggle.onpointerdown = (event) => {
+  event.stopPropagation();
+  if (event.button !== 0) return;
+  try { micToggle.setPointerCapture(event.pointerId); } catch { /* not capturable */ }
+  holdTimer = setTimeout(() => { holdTimer = null; talking = true; window.assistantWidget.act('talk-start'); }, 400);
+};
+const endPress = (event: Event, cancelled: boolean) => {
+  event.stopPropagation();
+  if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; if (!cancelled) window.assistantWidget.act('mute'); }
+  else if (talking) { talking = false; window.assistantWidget.act('talk-end'); }
+};
+micToggle.onpointerup = (event) => endPress(event, false);
+micToggle.onpointercancel = (event) => endPress(event, true);
+micToggle.onclick = (event) => { event.stopPropagation(); if (event.detail === 0) window.assistantWidget.act('mute'); };
 window.assistantWidget.onState((s) => {
   const micOn = s.mic === 'listening' || s.mic === 'recording' || s.mic === 'processing';
   micToggle.title = micOn ? 'Microphone is on. Click to turn it off.' : s.mic === 'error' ? 'Microphone problem. Click to retry.' : 'Microphone is off. Click to turn it on.';

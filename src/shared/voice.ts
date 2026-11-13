@@ -187,7 +187,7 @@ export interface VoiceResult {
   /** Text after the wake word was removed (wake-word mode only). */
   wake?: boolean;
   /** Hands-free only, when the result is silent: why nothing happened, and what was heard (shown on screen only). */
-  why?: 'quiet' | 'empty' | 'nowake';
+  why?: 'quiet' | 'empty' | 'nowake' | 'junk';
   heard?: string;
   /** A per-app rule changed the style, e.g. "casual for slack". */
   applied?: string;
@@ -257,6 +257,31 @@ export function cleanTranscript(raw: string, durationSec = 0): string {
   if (!norm) return '';
   if (durationSec < 4 && PHANTOMS.has(norm)) return '';
   return t;
+}
+
+/**
+ * True when a transcript does not look like something a person just said to Jarvin. The recognizer gives no confidence
+ * score, so these are the signs that it made words up from noise:
+ *  - a stock phrase recognizers produce from silence or music ("thank you", "bye"), whatever the length of the audio;
+ *  - more words than anyone can say in that time;
+ *  - the same word or short phrase repeated over and over.
+ * Used for automatic listening only; a deliberate recording is never filtered.
+ */
+export function implausibleHearing(text: string, durationSec: number): boolean {
+  const norm = text.toLowerCase().replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!norm) return true;
+  if (PHANTOMS.has(norm)) return true;
+  const words = norm.split(' ');
+  // Fast speech is about 4 words a second; 7 leaves a wide margin.
+  if (durationSec > 0 && words.length >= 6 && words.length / durationSec > 7) return true;
+  for (let size = 1; size <= 3; size++) {
+    let repeats = 1;
+    for (let i = size; i + size <= words.length; i += size) {
+      if (words.slice(i, i + size).join(' ') === words.slice(i - size, i).join(' ')) { if (++repeats >= 4) return true; }
+      else repeats = 1;
+    }
+  }
+  return false;
 }
 
 const FILLERS = /\b(?:u+m+|u+h+|e+r+m*|h+m+|m+h*m+|you know,|i mean,)\b[,.]?\s*/gi;
