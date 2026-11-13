@@ -1,4 +1,4 @@
-/** Per-user background mode (see docs/SERVICE-DESIGN.md, Option A): start hidden at sign-in, and reload the window after a crash. */
+/** Per-user background mode (chosen over a Windows service, which cannot show windows or use the microphone in the user's session): start hidden at sign-in, and reload the window after a crash. */
 
 export const BACKGROUND_FLAG = '--background';
 

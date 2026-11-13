@@ -679,7 +679,7 @@ flowchart TD
 - If the window crashes, the main process reloads it, at most three times in ten minutes.
 - If the whole app crashes, a tiny **crash watcher** process notices the broken connection and restarts Jarvin.
 
-**Background mode** (`src/main/background.ts`). With "start at sign-in" on, Jarvin starts hidden with a tray icon: no window, no pet, no microphone and no model warm-up until first opened. This replaced the idea of a Windows service, which cannot show windows or use the microphone on the user's desktop. The reasoning is in [SERVICE-DESIGN.md](SERVICE-DESIGN.md).
+**Background mode** (`src/main/background.ts`). With "start at sign-in" on, Jarvin starts hidden with a tray icon: no window, no pet, no microphone and no model warm-up until first opened. This replaced the idea of a Windows service, which cannot show windows or use the microphone on the user's desktop. The design note with the full reasoning was removed from the repository on 13 November; the short version is the sentence above.
 
 **Traces.** Every run writes a JSON-lines file of its events, with secrets redacted. The trace viewer in the app replays what the model saw and did, which is the main tool for debugging a wrong action.
 
