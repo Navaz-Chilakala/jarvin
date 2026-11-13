@@ -175,6 +175,7 @@ Chat model qwen3:8b; vision model qwen3-vl:4b-instruct; speech recognizer Qwen3-
 - Phone controller.
 
 ### Day log
+- **13 Nov:** feature work paused at the user's request. Wrote [JARVIN-TECHNICAL-GUIDE.md](JARVIN-TECHNICAL-GUIDE.md): an end-to-end technical guide (concepts from first principles, then architecture, request flow, agent loop, tools, voice, desktop control, safety, recovery, build and limits) with eight diagrams, all checked to render. Facts were read from the code; not committed yet. An 18-slide presentation of the same material was made as a private slide deck (https://claude.ai/artifact/WkmsNhYGsnHYT4Us3iQnnw); its layout was not checked slide by slide.
 - **9 Nov:** first live desktop runs with qwen3.5:4b; launch, typing, save, Chrome, Calculator; many small fixes (see "Live desktop findings" below).
 - **10 Nov:** auto-resume, installer diagnosis and zip build, prompt caching and warm order, speech and voice fallbacks, fewer-screenshot wording, bundled voice, routine schedule and step mode, renderer split, proactive notices, background mode, new plush pet and icon.
 - **11 Nov:** prompt priming, volume loop confirmed fixed, voice check scripts repaired, crash reload and auto-resume confirmed live, pet poses, listening reworked twice (first around the wake word, then to an explicit microphone switch), Calculator answers fixed, zip rebuilt, reminder repeat/edit/snooze, more proactive notices, restart after a full crash, matched model runs.
