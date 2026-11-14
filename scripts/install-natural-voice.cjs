@@ -1,8 +1,8 @@
-// Installs the already-downloaded, verified test voice without overwriting existing files.
+// Installs the bundled, checksum-verified natural voice (assets/voice/piper) without overwriting existing files.
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const source = path.resolve('scratchpad/kokoro-eval/piper');
+const source = path.resolve(__dirname, '..', 'assets', 'voice', 'piper');
 const target = path.join(process.env.APPDATA, 'jarvin', 'models', 'piper');
 const hashes = {
   'joe.onnx': '58afce0321b8d9c46d7cdf9c16500cc55a793b4220212dba6b70fb788b3baf06',

@@ -102,13 +102,24 @@ Stdio servers start with the workspace as their working directory. Config is sto
 ## Layout
 
 ```
-src/main/agent.ts     agent loop: stream â†’ tool calls â†’ approve â†’ run â†’ repeat
-src/main/ollama.ts    streaming /api/chat client
-src/main/tools.ts     built-in tools + workspace sandbox
-src/main/mcp.ts       MCP client manager (stdio + HTTP)
-src/main/main.ts      Electron main process, IPC, approvals, system prompt
-src/renderer/         UI: file tree, editor, chat, approval cards
+src/main/             Electron main process
+  agent.ts              agent loop: stream, tool calls, approve, run, repeat
+  ollama.ts             streaming /api/chat client
+  tools.ts              built-in tools + workspace sandbox
+  mcp.ts                MCP client manager (stdio + HTTP)
+  main.ts               app start-up, IPC, approvals, system prompt
+  *-worker.ts           speech, voice-activity, Piper voice and document workers
+src/renderer/         UI: file tree, editor, chat, approval cards, floating pet
+src/shared/           types and logic shared by main and renderer
+tests/                unit tests (npm test picks up every *.test.ts)
+scripts/              launcher (launch.vbs), installers, and the e2e / live checks behind npm run check:*
+assets/               app icons, bundled voice models (Piper, Silero VAD), pet source art
+browser-extension/    unpacked Chrome/Edge extension for "Share browser page"
+docs/                 product status, implementation tracker, technical guide, voice design, slides
+build.mjs             esbuild bundler (outputs dist/, which is not committed)
 ```
+
+Generated folders (`dist/`, `release/`, `.test-out/`, `scratchpad/`) and `*.log` files are git-ignored and safe to delete; `npm start`, `npm test` and `npm run dist` recreate what they need.
 
 ## Notes
 
